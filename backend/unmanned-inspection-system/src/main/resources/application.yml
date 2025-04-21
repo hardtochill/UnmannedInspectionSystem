@@ -1,0 +1,79 @@
+server:
+  port: 8080
+  servlet:
+    # ????????
+    context-path: /api
+
+spring:
+  profiles:
+    active: dev
+  servlet:
+    multipart:
+      max-file-size: 15MB
+      max-request-size: 15MB
+  web:
+    resources:
+      add-mappings: false
+  datasource:
+    url: jdbc:mysql://${unmanned-inspection-system.datasource.host}:${unmanned-inspection-system.datasource.port}/${unmanned-inspection-system.datasource.dbName}?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&allowMultiQueries=true
+    username: ${unmanned-inspection-system.datasource.username}
+    password: ${unmanned-inspection-system.datasource.password}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      pool-name: HikariCPDatasource
+      minimum-idle: 5
+      idle-timeout: 180000
+      maximum-pool-size: 10
+      auto-commit: true
+      max-lifetime: 1800000
+      connection-timeout: 30000
+      connection-test-query: SELECT 1
+  data:
+    redis:
+      database: ${unmanned-inspection-system.redis.database}
+      host: ${unmanned-inspection-system.redis.host}
+      password: ${unmanned-inspection-system.redis.password}
+      port: ${unmanned-inspection-system.redis.port}
+      # ??????????
+      connect-timeout: 5000
+      # ??????????
+      timeout: 3000
+      # Lettuce ??????
+      lettuce:
+        # ?????
+        pool:
+          # ??????
+          min-idle: 0
+          # ??????
+          max-idle: 8
+          # ??????
+          max-active: 8
+          # ???????? ???????????0???????
+          max-wait: 10000
+# logback
+logback:
+  project:
+    folder: ${unmanned-inspection-system.project.folder}
+  log:
+    root:
+      level: info
+mybatis:
+  configuration:
+    map-underscore-to-camel-case: true
+  # mapperXML????
+  mapper-locations: classpath:mapper/*.xml
+  # ??????
+  type-aliases-package: cn.lqz.unmannedinspectionsystem.pojo.entity
+
+service:
+  # ????????
+  default-password: ${unmanned-inspection-system.service.default-password}
+  # ?????????
+  database:
+    # ?????
+    default-folder: ${unmanned-inspection-system.service.database.default-folder}
+    host: ${unmanned-inspection-system.service.database.host}
+    port: ${unmanned-inspection-system.service.database.port}
+    username: ${unmanned-inspection-system.service.database.username}
+    password: ${unmanned-inspection-system.service.database.password}
+    dbName: ${unmanned-inspection-system.service.database.dbName}

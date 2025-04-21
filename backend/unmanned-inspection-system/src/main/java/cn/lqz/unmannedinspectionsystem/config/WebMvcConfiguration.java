@@ -1,0 +1,92 @@
+package cn.lqz.unmannedinspectionsystem.config;
+
+
+import cn.lqz.unmannedinspectionsystem.enums.ResponseCodeEnum;
+import cn.lqz.unmannedinspectionsystem.exceptions.BaseException;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.core.convert.converter.Converter;
+import org.springframework.format.FormatterRegistry;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+
+/**
+ * WebMvc配置类
+ */
+@Configuration
+public class WebMvcConfiguration implements WebMvcConfigurer {
+
+    /**
+     * 配置全局格式化器，用于转换前端提交的表单形式数据
+     * @param registry
+     */
+    @Override
+    public void addFormatters(FormatterRegistry registry) {
+        // 将"yyyy-MM-dd"形式字符串转LocalDate
+        registry.addConverter(new Converter<String, LocalDate>() {
+            private final DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+
+            @Override
+            public LocalDate convert(String source) {
+                try {
+                    return LocalDate.parse(source, dateFormatter);
+                } catch (DateTimeParseException e) {
+                    throw new BaseException(ResponseCodeEnum.CODE_600.getCode(),"日期格式错误，请使用'yyyy-MM-dd'形式");
+                }
+            }
+        });
+
+        // 将"yyyy-MM-dd HH:mm:ss"形式字符串转LocalDateTime
+        registry.addConverter(new Converter<String, LocalDateTime>() {
+            private final DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+            @Override
+            public LocalDateTime convert(String source) {
+                try {
+                    return LocalDateTime.parse(source, dateTimeFormatter);
+                } catch (DateTimeParseException e) {
+                    throw new BaseException(ResponseCodeEnum.CODE_600.getCode(),"日期格式错误，请使用'yyyy-MM-dd HH:mm:ss'形式");
+                }
+            }
+        });
+
+        // 将"HH:mm:ss"形式字符串转LocalTime
+        registry.addConverter(new Converter<String, LocalTime>() {
+            private final DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss");
+
+            @Override
+            public LocalTime convert(String source) {
+                try {
+                    return LocalTime.parse(source, timeFormatter);
+                } catch (DateTimeParseException e) {
+                    throw new BaseException(ResponseCodeEnum.CODE_600.getCode(),"日期格式错误，请使用'HH:mm:ss'形式");
+                }
+            }
+        });
+    }
+
+    /**
+     * 配置跨域
+     * @param registry
+     */
+    @Override
+    public void addCorsMappings(CorsRegistry registry){
+        registry.addMapping("/**")
+                // 允许的域
+                .allowedOrigins("http://localhost:8081")
+                // 允许发送Cookie信息
+                .allowCredentials(true)
+                // 允许的头信息
+                .allowedHeaders("*")
+                // 允许的请求方式
+                .allowedMethods("*")
+                // 有效时长
+                .maxAge(3600L);
+    }
+
+}
