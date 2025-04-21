@@ -1,7 +1,7 @@
 server:
   port: 8080
   servlet:
-    # ????????
+    # 所有请求路径前缀
     context-path: /api
 
 spring:
@@ -34,21 +34,21 @@ spring:
       host: ${unmanned-inspection-system.redis.host}
       password: ${unmanned-inspection-system.redis.password}
       port: ${unmanned-inspection-system.redis.port}
-      # ??????????
+      # 连接超时时间（毫秒）
       connect-timeout: 5000
-      # ??????????
+      # 操作超时时间（毫秒）
       timeout: 3000
-      # Lettuce ??????
+      # Lettuce 客户端的配置
       lettuce:
-        # ?????
+        # 连接池配置
         pool:
-          # ??????
+          # 最小空闲连接
           min-idle: 0
-          # ??????
+          # 最大空闲连接
           max-idle: 8
-          # ??????
+          # 最大活跃连接
           max-active: 8
-          # ???????? ???????????0???????
+          # 从连接池获取连接 最大超时时间，小于等于0则表示不会超时
           max-wait: 10000
 # logback
 logback:
@@ -60,17 +60,17 @@ logback:
 mybatis:
   configuration:
     map-underscore-to-camel-case: true
-  # mapperXML????
+  # mapperXML文件路径
   mapper-locations: classpath:mapper/*.xml
-  # ??????
+  # 实体类所在包
   type-aliases-package: cn.lqz.unmannedinspectionsystem.pojo.entity
 
 service:
-  # ????????
+  # 新建用户默认密码
   default-password: ${unmanned-inspection-system.service.default-password}
-  # ?????????
+  # 数据库备份配置信息
   database:
-    # ?????
+    # 默认文件夹
     default-folder: ${unmanned-inspection-system.service.database.default-folder}
     host: ${unmanned-inspection-system.service.database.host}
     port: ${unmanned-inspection-system.service.database.port}
