@@ -38,5 +38,3 @@ application-*.yml
 #测试文件
 test/
 
-#临时文件
-../file/
