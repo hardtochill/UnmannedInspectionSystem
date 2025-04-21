@@ -39,4 +39,4 @@ application-*.yml
 test/
 
 #临时文件
-/backend/file/
+../file/
