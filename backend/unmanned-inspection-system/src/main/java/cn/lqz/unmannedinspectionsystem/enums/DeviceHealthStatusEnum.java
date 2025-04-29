@@ -17,7 +17,7 @@ public enum DeviceHealthStatusEnum {
         this.description = description;
     }
 
-    public DeviceHealthStatusEnum getByStatus(Integer status){
+    public static DeviceHealthStatusEnum getByStatus(Integer status){
         for (DeviceHealthStatusEnum deviceHealthStatusEnum : DeviceHealthStatusEnum.values()) {
             if(deviceHealthStatusEnum.status.equals(status)){
                 return deviceHealthStatusEnum;

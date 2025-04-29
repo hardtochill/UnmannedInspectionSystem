@@ -10,7 +10,7 @@ public enum UserStatusEnum {
         this.status = status;
         this.description = description;
     }
-    public UserStatusEnum getByStatus(Integer status){
+    public static UserStatusEnum getByStatus(Integer status){
         for (UserStatusEnum userStatusEnum : UserStatusEnum.values()) {
             if(userStatusEnum.status.equals(status)){
                 return userStatusEnum;

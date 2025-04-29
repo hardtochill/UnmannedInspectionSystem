@@ -1,8 +1,8 @@
 server:
   port: 8080
-  servlet:
-    # 所有请求路径前缀
-    context-path: /api
+  #servlet:
+  #  # 所有请求路径前缀
+  #  context-path: /api
 
 spring:
   profiles:
