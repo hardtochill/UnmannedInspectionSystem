@@ -3,10 +3,13 @@ package cn.lqz.unmannedinspectionsystem.config;
 
 import cn.lqz.unmannedinspectionsystem.enums.ResponseCodeEnum;
 import cn.lqz.unmannedinspectionsystem.exceptions.BaseException;
+import cn.lqz.unmannedinspectionsystem.interceptor.UserTokenInterceptor;
+import jakarta.annotation.Resource;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.format.FormatterRegistry;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.time.LocalDate;
@@ -20,6 +23,9 @@ import java.time.format.DateTimeParseException;
  */
 @Configuration
 public class WebMvcConfiguration implements WebMvcConfigurer {
+    @Resource
+    public UserTokenInterceptor userTokenInterceptor;
+
 
     /**
      * 配置全局格式化器，用于转换前端提交的表单形式数据
@@ -87,6 +93,20 @@ public class WebMvcConfiguration implements WebMvcConfigurer {
                 .allowedMethods("*")
                 // 有效时长
                 .maxAge(3600L);
+    }
+
+    /**
+     * 配置拦截器
+     * @param registry
+     */
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(userTokenInterceptor)
+                .addPathPatterns("/**")
+                .excludePathPatterns("/account/login");
+                //.excludePathPatterns("/account/getCheckCode")
+                //.excludePathPatterns("/account/submitCheckCode")
+                //.excludePathPatterns("/account/forgetAndChangePassword");
     }
 
 }
