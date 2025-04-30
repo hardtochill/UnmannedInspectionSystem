@@ -1,8 +1,8 @@
 server:
   port: 8080
-  #servlet:
-  #  # 所有请求路径前缀
-  #  context-path: /api
+  servlet:
+    # 所有请求路径前缀
+    context-path: /api
 
 spring:
   profiles:
@@ -77,3 +77,10 @@ service:
     username: ${unmanned-inspection-system.service.database.username}
     password: ${unmanned-inspection-system.service.database.password}
     dbName: ${unmanned-inspection-system.service.database.dbName}
+
+  # yolov5 模型参数配置
+  yolo:
+    # 入参图片文件夹
+    input-image-filepath: ${unmanned-inspection-system.service.yolo.input-image-filepath}
+    # 出参图片文件夹
+    output-image-filepath: ${unmanned-inspection-system.service.yolo.output-image-filepath}

@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class AlarmController {
     private final AlarmService alarmService;
+
     @PostMapping("/loadAlarmList")
     @PageQueryAutoFill
     public ResponseVO<PageResultVO> loadAlarmList(AlarmPageQueryDTO alarmPageQueryDTO){
