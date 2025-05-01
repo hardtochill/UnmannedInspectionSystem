@@ -3,57 +3,71 @@ import { ref, reactive } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { User, Lock, Message } from '@element-plus/icons-vue';
+import { accountApi } from '@/api';
 
 const router = useRouter();
 const isLogin = ref(true);
 const form = reactive({
   username: '',
-  email: '',
+  phoneNumber: '',
   password: '',
   confirmPassword: ''
 });
 
-// 模拟用户数据
-const mockUsers = [
-  {
-    username: 'admin',
-    email: 'admin@example.com',
-    password: '123456'
-  }
-];
+const loading = ref(false);
 
-// 初始化本地存储的用户数据
-if (!localStorage.getItem('users')) {
-  localStorage.setItem('users', JSON.stringify(mockUsers));
-}
-
-const handleSubmit = () => {
+const handleSubmit = async () => {
   if (isLogin.value) {
-    // 登录逻辑
-    if (!form.email || !form.password) {
-      ElMessage.error('请填写完整信息');
-      return;
-    }
+    try {
+      console.log('准备发送登录请求:', form);
+      const res = await accountApi.login({
+        phoneNumber: form.phoneNumber,
+        password: form.password
+      });
+      console.log('登录响应数据:', res);
 
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const user = users.find(u => u.email === form.email && u.password === form.password);
+      if (res.code === 200 && res.data) {
+        // 1. 先清除旧数据
+        localStorage.clear();
+        
+        // 2. 存储新的用户信息
+        const userData = res.data;
+        localStorage.setItem('currentUser', JSON.stringify(userData));
+        
+        // 3. 验证数据是否正确存储
+        const storedData = localStorage.getItem('currentUser');
+        const parsedData = JSON.parse(storedData || '{}');
+        
+        console.log('存储验证:', {
+          stored: !!storedData,
+          hasToken: !!parsedData.token,
+          token: parsedData.token,
+          userData: parsedData
+        });
 
-    if (user) {
-      // 存储登录状态和用户信息
-      localStorage.setItem('token', 'mock-jwt-token');
-      localStorage.setItem('currentUser', JSON.stringify({
-        username: user.username,
-        email: user.email
-      }));
-      
-      ElMessage.success('登录成功');
-      router.push('/home');
-    } else {
-      ElMessage.error('邮箱或密码错误');
+        if (!parsedData.token) {
+          throw new Error('用户信息存储失败');
+        }
+
+        // 4. 存储成功后跳转
+        router.push('/');
+        ElMessage.success('登录成功');
+      } else {
+        ElMessage.error(res.info || '登录失败');
+      }
+    } catch (error) {
+      console.error('登录错误详情:', error);
+      ElMessage.error(error.message || '登录失败，请重试');
+      // 发生错误时清除可能的部分数据
+      localStorage.clear();
     }
   } else {
-    // 注册逻辑
-    if (!form.username || !form.email || !form.password || !form.confirmPassword) {
+    // 注册逻辑 - 如果后端没有注册接口，可以隐藏注册功能
+    ElMessage.info('请联系管理员创建账号');
+    return;
+    
+    /* 如果有注册接口，可以保留以下代码
+    if (!form.username || !form.phoneNumber || !form.password || !form.confirmPassword) {
       ElMessage.error('请填写完整信息');
       return;
     }
@@ -62,40 +76,65 @@ const handleSubmit = () => {
       return;
     }
 
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    
-    // 检查邮箱是否已注册
-    if (users.some(u => u.email === form.email)) {
-      ElMessage.error('该邮箱已被注册');
-      return;
+    try {
+      await accountApi.register({
+        username: form.username,
+        phoneNumber: form.phoneNumber,
+        password: form.password
+      });
+      ElMessage.success('注册成功，请登录');
+      isLogin.value = true;
+      Object.keys(form).forEach(key => form[key] = '');
+    } catch (e) {
+      ElMessage.error(e.response?.data?.message || '注册失败，请稍后重试');
     }
-
-    // 添加新用户
-    users.push({
-      username: form.username,
-      email: form.email,
-      password: form.password
-    });
-    
-    localStorage.setItem('users', JSON.stringify(users));
-    ElMessage.success('注册成功，请登录');
-    isLogin.value = true;
-    
-    // 清空表单
-    Object.keys(form).forEach(key => form[key] = '');
+    */
   }
 };
 
 const toggleMode = () => {
   isLogin.value = !isLogin.value;
-  // 清空表单
   Object.keys(form).forEach(key => form[key] = '');
 };
 
-// 添加快捷填充方法（仅用于演示）
+// 演示账号填充（可选是否保留）
 const fillDemoAccount = () => {
-  form.email = 'admin@example.com';
+  form.phoneNumber = '13800000000';
   form.password = '123456';
+};
+
+// 添加登出方法
+const handleLogout = async () => {
+  try {
+    loading.value = true;
+    const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    
+    if (currentUser.userId) {
+      console.log('准备登出用户:', currentUser);
+      
+      await accountApi.logout(currentUser.userId);
+      
+      // 完全清理本地存储
+      localStorage.clear();
+      
+      ElMessage.success('退出登录成功');
+    } else {
+      console.warn('未找到用户信息，直接清理存储');
+      localStorage.clear();
+    }
+    
+    // 确保在清理存储后再跳转
+    router.push('/login');
+  } catch (error) {
+    console.error('登出错误:', error);
+    ElMessage.error('退出失败，请重试');
+    
+    // 即使失败也清理存储
+    localStorage.clear();
+    router.push('/login');
+  } finally {
+    loading.value = false;
+  }
 };
 </script>
 
@@ -118,10 +157,10 @@ const fillDemoAccount = () => {
         </div>
 
         <div class="form-group">
-          <label>邮箱</label>
+          <label>手机号</label>
           <el-input 
-            v-model="form.email" 
-            placeholder="请输入邮箱"
+            v-model="form.phoneNumber" 
+            placeholder="请输入手机号"
             prefix-icon="Message"
           />
         </div>
@@ -152,6 +191,7 @@ const fillDemoAccount = () => {
           type="primary" 
           class="submit-btn" 
           @click="handleSubmit"
+          :loading="loading"
         >
           {{ isLogin ? '登 录' : '注 册' }}
         </el-button>

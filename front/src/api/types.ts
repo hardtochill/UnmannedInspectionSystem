@@ -38,6 +38,36 @@ export const DeviceStatusMap = {
   shutdown: '停机'
 } as const;
 
+// 停机记录类型
+export type ShutdownRecord = {
+  id: string;
+  deviceId: string;
+  deviceName: string;
+  startTime: string;
+  endTime: string;
+  duration: number;
+  reason: string;
+  operator: string;
+};
+
+// 系统日志类型
+export type SystemLog = {
+  id: string;
+  type: 'info' | 'warning' | 'error';
+  message: string;
+  timestamp: string;
+  operator: string;
+};
+
+// 用户信息类型
+export type UserInfo = {
+  id: string;
+  username: string;
+  role: 'admin' | 'operator' | 'viewer';
+  lastLogin: string;
+  status: 'active' | 'inactive';
+};
+
 export interface ApiResponse<T> {
   code: number;
   message: string;

@@ -2,7 +2,7 @@
  * @Author: Fhx0902 YJX040124@outlook.com
  * @Date: 2025-04-18 13:49:49
  * @LastEditors: Fhx0902 YJX040124@outlook.com
- * @LastEditTime: 2025-04-21 20:25:27
+ * @LastEditTime: 2025-04-29 17:59:52
  * @FilePath: \front\src\views\StatusMonitoring.vue
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -18,13 +18,19 @@
           <div class="page-header">
             <h2>设备状态</h2>
             <div class="header-actions">
-              <el-select v-model="deviceType" placeholder="设备类型" clearable>
+              <el-select v-model="formWorkshop" placeholder="车间" clearable>
+                <el-option label="全部" value="" />
+                <el-option label="车间A" value="车间A" />
+                <el-option label="车间B" value="车间B" />
+                <el-option label="车间C" value="车间C" />
+              </el-select>
+              <el-select v-model="formDeviceType" placeholder="设备类型" clearable>
                 <el-option label="全部" value="" />
                 <el-option label="水泵" value="水泵" />
                 <el-option label="联轴器" value="联轴器" />
                 <el-option label="EDI装置" value="EDI装置" />
               </el-select>
-              <el-select v-model="statusFilter" placeholder="状态筛选" clearable>
+              <el-select v-model="formStatusFilter" placeholder="状态筛选" clearable>
                 <el-option label="全部" value="" />
                 <el-option label="报警" value="alarm" />
                 <el-option label="预警" value="warning" />
@@ -33,7 +39,7 @@
                 <el-option label="停机" value="shutdown" />
               </el-select>
               <el-input
-                v-model="searchKeyword"
+                v-model="formSearchKeyword"
                 placeholder="搜索设备名称"
                 clearable
                 class="search-input"
@@ -42,6 +48,8 @@
                   <el-icon><Search /></el-icon>
                 </template>
               </el-input>
+              <el-button type="primary" @click="handleQuery">查询</el-button>
+              <el-button @click="handleReset">重置</el-button>
             </div>
           </div>
 
@@ -84,25 +92,31 @@ const currentTime = ref(new Date().toLocaleString());
 const theme = ref('dark');
 const isCollapse = ref(false);
 const deviceList = ref<DeviceStatus[]>([]);
-const deviceType = ref('');
-const statusFilter = ref('');
-const searchKeyword = ref('');
+const formWorkshop = ref('');
+const formDeviceType = ref('');
+const formStatusFilter = ref('');
+const formSearchKeyword = ref('');
 const currentPage = ref(1);
 const pageSize = ref(12);
 const total = ref(0);
+const workshop = ref('');
+const deviceType = ref('');
+const statusFilter = ref('');
+const searchKeyword = ref('');
 
 // 过滤设备列表
 const filteredDevices = computed(() => {
   let filtered = deviceList.value;
 
+  if (workshop.value) {
+    filtered = filtered.filter(device => device.workshop === workshop.value);
+  }
   if (deviceType.value) {
     filtered = filtered.filter(device => device.type === deviceType.value);
   }
-
   if (statusFilter.value) {
     filtered = filtered.filter(device => device.status === statusFilter.value);
   }
-
   if (searchKeyword.value) {
     const keyword = searchKeyword.value.toLowerCase();
     filtered = filtered.filter(device => 
@@ -110,9 +124,7 @@ const filteredDevices = computed(() => {
       device.description?.toLowerCase().includes(keyword)
     );
   }
-
   total.value = filtered.length;
-
   // 分页
   const start = (currentPage.value - 1) * pageSize.value;
   const end = start + pageSize.value;
@@ -136,6 +148,22 @@ const handleSizeChange = (val: number) => {
 
 const handleCurrentChange = (val: number) => {
   currentPage.value = val;
+};
+
+const handleQuery = () => {
+  workshop.value = formWorkshop.value;
+  deviceType.value = formDeviceType.value;
+  statusFilter.value = formStatusFilter.value;
+  searchKeyword.value = formSearchKeyword.value;
+  currentPage.value = 1;
+};
+
+const handleReset = () => {
+  formWorkshop.value = '';
+  formDeviceType.value = '';
+  formStatusFilter.value = '';
+  formSearchKeyword.value = '';
+  handleQuery();
 };
 
 onMounted(async () => {

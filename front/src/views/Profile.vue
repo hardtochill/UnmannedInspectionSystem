@@ -11,20 +11,12 @@
           <div class="profile-card">
             <div class="profile-header">
               <div class="avatar-section">
-                <el-avatar :size="100" :src="userInfo.avatar">
-                  {{ userInfo.username?.charAt(0).toUpperCase() }}
+                <el-avatar :size="100" :src="userInfo.avatar" class="user-avatar">
+                  {{ userInfo.name ? userInfo.name.charAt(0).toUpperCase() : 'U' }}
                 </el-avatar>
-                <el-upload
-                  class="avatar-uploader"
-                  action="#"
-                  :show-file-list="false"
-                  :before-upload="beforeAvatarUpload"
-                >
-                  <el-button type="primary" link>更换头像</el-button>
-                </el-upload>
               </div>
               <div class="basic-info">
-                <h2>{{ userInfo.name || userInfo.username }}</h2>
+                <h2>{{ userInfo.name || '未设置姓名' }}</h2>
                 <p class="role">{{ userInfo.role }}</p>
                 <p class="department">{{ userInfo.department }}</p>
               </div>
@@ -97,26 +89,6 @@
                         {{ isChangingPassword ? '取消修改' : '修改密码' }}
                       </el-button>
                     </div>
-                    
-                    <div class="security-item">
-                      <div class="security-info">
-                        <h4>手机绑定</h4>
-                        <p>已绑定：{{ maskPhone(userForm.phone) }}</p>
-                      </div>
-                      <el-button type="primary" link @click="handlePhoneChange">
-                        更换手机号
-                      </el-button>
-                    </div>
-                    
-                    <div class="security-item">
-                      <div class="security-info">
-                        <h4>邮箱绑定</h4>
-                        <p>已绑定：{{ maskEmail(userForm.email) }}</p>
-                      </div>
-                      <el-button type="primary" link @click="handleEmailChange">
-                        更换邮箱
-                      </el-button>
-                    </div>
                   </div>
                 </el-tab-pane>
 
@@ -148,14 +120,6 @@
                         :disabled="!notificationSettings.system && !notificationSettings.alarm"
                       />
                     </div>
-                    
-                    <div class="notification-item">
-                      <div class="notification-info">
-                        <h4>邮件通知</h4>
-                        <p>重要消息将同步发送邮件提醒</p>
-                      </div>
-                      <el-switch v-model="notificationSettings.email" />
-                    </div>
                   </div>
                 </el-tab-pane>
               </el-tabs>
@@ -177,89 +141,11 @@
         </div>
       </div>
     </div>
-
-    <!-- 手机号修改对话框 -->
-    <el-dialog
-      v-model="phoneDialogVisible"
-      title="更换手机号"
-      width="400px"
-    >
-      <el-form
-        ref="phoneFormRef"
-        :model="phoneForm"
-        :rules="phoneRules"
-        label-width="100px"
-      >
-        <el-form-item label="当前手机号">
-          <el-input v-model="userForm.phone" disabled />
-        </el-form-item>
-        <el-form-item label="新手机号" prop="newPhone">
-          <el-input v-model="phoneForm.newPhone" />
-        </el-form-item>
-        <el-form-item label="验证码" prop="verifyCode">
-          <div class="verify-code-input">
-            <el-input v-model="phoneForm.verifyCode" />
-            <el-button 
-              type="primary" 
-              :disabled="!!countdown"
-              @click="sendPhoneCode"
-            >
-              {{ countdown ? `${countdown}s后重试` : '获取验证码' }}
-            </el-button>
-          </div>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <div class="dialog-footer">
-          <el-button @click="phoneDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="savePhoneChange">确定</el-button>
-        </div>
-      </template>
-    </el-dialog>
-
-    <!-- 邮箱修改对话框 -->
-    <el-dialog
-      v-model="emailDialogVisible"
-      title="更换邮箱"
-      width="400px"
-    >
-      <el-form
-        ref="emailFormRef"
-        :model="emailForm"
-        :rules="emailRules"
-        label-width="100px"
-      >
-        <el-form-item label="当前邮箱">
-          <el-input v-model="userForm.email" disabled />
-        </el-form-item>
-        <el-form-item label="新邮箱" prop="newEmail">
-          <el-input v-model="emailForm.newEmail" />
-        </el-form-item>
-        <el-form-item label="验证码" prop="verifyCode">
-          <div class="verify-code-input">
-            <el-input v-model="emailForm.verifyCode" />
-            <el-button 
-              type="primary" 
-              :disabled="!!emailCountdown"
-              @click="sendEmailCode"
-            >
-              {{ emailCountdown ? `${emailCountdown}s后重试` : '获取验证码' }}
-            </el-button>
-          </div>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <div class="dialog-footer">
-          <el-button @click="emailDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="saveEmailChange">确定</el-button>
-        </div>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue';
+import { ref, reactive, computed, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import CommonHeader from '@/components/CommonHeader.vue';
 import CommonSidebar from '@/components/CommonSidebar.vue';
@@ -272,17 +158,14 @@ const activeTab = ref('basic');
 const isEditing = ref(false);
 const isChangingPassword = ref(false);
 const formRef = ref(null);
-const phoneFormRef = ref(null);
-const emailFormRef = ref(null);
 
 // 用户信息
 const userInfo = ref({
-  username: 'admin',
-  name: '管理员',
-  role: '系统管理员',
-  department: '系统管理部',
-  phone: '13800138000',
-  email: 'admin@example.com',
+  username: '',
+  name: '',
+  role: '',
+  department: '',
+  phone: '',
   avatar: ''
 });
 
@@ -291,7 +174,6 @@ const userForm = reactive({
   username: userInfo.value.username,
   name: userInfo.value.name,
   phone: userInfo.value.phone,
-  email: userInfo.value.email,
   department: userInfo.value.department,
   role: userInfo.value.role,
   oldPassword: '',
@@ -299,28 +181,11 @@ const userForm = reactive({
   confirmPassword: ''
 });
 
-// 手机号修改表单
-const phoneDialogVisible = ref(false);
-const phoneForm = reactive({
-  newPhone: '',
-  verifyCode: ''
-});
-const countdown = ref(0);
-
-// 邮箱修改表单
-const emailDialogVisible = ref(false);
-const emailForm = reactive({
-  newEmail: '',
-  verifyCode: ''
-});
-const emailCountdown = ref(0);
-
 // 通知设置
 const notificationSettings = reactive({
   system: true,
   alarm: true,
-  sound: true,
-  email: false
+  sound: true
 });
 
 // 表单验证规则
@@ -332,10 +197,6 @@ const formRules = {
   phone: [
     { required: true, message: '请输入手机号码', trigger: 'blur' },
     { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码', trigger: 'blur' }
-  ],
-  email: [
-    { required: true, message: '请输入邮箱', trigger: 'blur' },
-    { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
   ],
   oldPassword: [
     { required: true, message: '请输入原密码', trigger: 'blur' },
@@ -360,28 +221,28 @@ const formRules = {
   ]
 };
 
-// 手机号验证规则
-const phoneRules = {
-  newPhone: [
-    { required: true, message: '请输入新手机号码', trigger: 'blur' },
-    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码', trigger: 'blur' }
-  ],
-  verifyCode: [
-    { required: true, message: '请输入验证码', trigger: 'blur' },
-    { len: 6, message: '验证码长度应为6位', trigger: 'blur' }
-  ]
-};
-
-// 邮箱验证规则
-const emailRules = {
-  newEmail: [
-    { required: true, message: '请输入新邮箱', trigger: 'blur' },
-    { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
-  ],
-  verifyCode: [
-    { required: true, message: '请输入验证码', trigger: 'blur' },
-    { len: 6, message: '验证码长度应为6位', trigger: 'blur' }
-  ]
+// 更新用户信息
+const updateUserInfo = () => {
+  const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+  userInfo.value = {
+    username: currentUser.username || '',
+    name: currentUser.name || '',
+    // 根据roleType转换角色显示文本
+    role: currentUser.roleType === 1 ? '管理员' : '普通用户',
+    department: currentUser.department || '未分配',
+    phone: currentUser.phoneNumber || '',
+    // 不使用实际头像，而是使用姓名首字母
+    avatar: ''
+  };
+  
+  // 更新表单数据
+  Object.assign(userForm, {
+    username: userInfo.value.username,
+    name: userInfo.value.name,
+    phone: userInfo.value.phone,
+    department: userInfo.value.department,
+    role: userInfo.value.role
+  });
 };
 
 // 切换编辑状态
@@ -394,8 +255,7 @@ const cancelEdit = () => {
   isEditing.value = false;
   Object.assign(userForm, {
     name: userInfo.value.name,
-    phone: userInfo.value.phone,
-    email: userInfo.value.email
+    phone: userInfo.value.phone
   });
 };
 
@@ -409,8 +269,7 @@ const saveChanges = async () => {
         // 这里应该调用后端 API
         Object.assign(userInfo.value, {
           name: userForm.name,
-          phone: userForm.phone,
-          email: userForm.email
+          phone: userForm.phone
         });
         ElMessage.success('保存成功');
         isEditing.value = false;
@@ -448,138 +307,10 @@ const savePassword = async () => {
   });
 };
 
-// 处理手机号修改
-const handlePhoneChange = () => {
-  phoneForm.newPhone = '';
-  phoneForm.verifyCode = '';
-  phoneDialogVisible.value = true;
-};
-
-// 发送手机验证码
-const sendPhoneCode = async () => {
-  if (!phoneForm.newPhone) {
-    ElMessage.warning('请输入新手机号');
-    return;
-  }
-  
-  try {
-    // 这里应该调用后端 API 发送验证码
-    countdown.value = 60;
-    const timer = setInterval(() => {
-      countdown.value--;
-      if (countdown.value <= 0) {
-        clearInterval(timer);
-      }
-    }, 1000);
-    ElMessage.success('验证码已发送');
-  } catch (error) {
-    ElMessage.error('验证码发送失败');
-  }
-};
-
-// 保存手机号修改
-const savePhoneChange = async () => {
-  if (!phoneFormRef.value) return;
-  
-  await phoneFormRef.value.validate(async (valid) => {
-    if (valid) {
-      try {
-        // 这里应该调用后端 API
-        userForm.phone = phoneForm.newPhone;
-        userInfo.value.phone = phoneForm.newPhone;
-        ElMessage.success('手机号修改成功');
-        phoneDialogVisible.value = false;
-      } catch (error) {
-        ElMessage.error('手机号修改失败');
-      }
-    }
-  });
-};
-
-// 处理邮箱修改
-const handleEmailChange = () => {
-  emailForm.newEmail = '';
-  emailForm.verifyCode = '';
-  emailDialogVisible.value = true;
-};
-
-// 发送邮箱验证码
-const sendEmailCode = async () => {
-  if (!emailForm.newEmail) {
-    ElMessage.warning('请输入新邮箱');
-    return;
-  }
-  
-  try {
-    // 这里应该调用后端 API 发送验证码
-    emailCountdown.value = 60;
-    const timer = setInterval(() => {
-      emailCountdown.value--;
-      if (emailCountdown.value <= 0) {
-        clearInterval(timer);
-      }
-    }, 1000);
-    ElMessage.success('验证码已发送');
-  } catch (error) {
-    ElMessage.error('验证码发送失败');
-  }
-};
-
-// 保存邮箱修改
-const saveEmailChange = async () => {
-  if (!emailFormRef.value) return;
-  
-  await emailFormRef.value.validate(async (valid) => {
-    if (valid) {
-      try {
-        // 这里应该调用后端 API
-        userForm.email = emailForm.newEmail;
-        userInfo.value.email = emailForm.newEmail;
-        ElMessage.success('邮箱修改成功');
-        emailDialogVisible.value = false;
-      } catch (error) {
-        ElMessage.error('邮箱修改失败');
-      }
-    }
-  });
-};
-
-// 头像上传前的处理
-const beforeAvatarUpload = (file) => {
-  const isJPG = file.type === 'image/jpeg';
-  const isPNG = file.type === 'image/png';
-  const isLt2M = file.size / 1024 / 1024 < 2;
-
-  if (!isJPG && !isPNG) {
-    ElMessage.error('头像只能是 JPG 或 PNG 格式!');
-    return false;
-  }
-  if (!isLt2M) {
-    ElMessage.error('头像大小不能超过 2MB!');
-    return false;
-  }
-
-  // 这里应该调用后端 API 上传头像
-  const reader = new FileReader();
-  reader.readAsDataURL(file);
-  reader.onload = () => {
-    userInfo.value.avatar = reader.result;
-    ElMessage.success('头像上传成功');
-  };
-  return false;
-};
-
-// 掩码处理手机号
-const maskPhone = (phone) => {
-  return phone ? phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2') : '';
-};
-
-// 掩码处理邮箱
-const maskEmail = (email) => {
-  if (!email) return '';
-  const [name, domain] = email.split('@');
-  return `${name.charAt(0)}****@${domain}`;
-};
+// 在组件挂载时更新用户信息
+onMounted(() => {
+  updateUserInfo();
+});
 </script>
 
 <style scoped>
@@ -619,8 +350,11 @@ const maskEmail = (email) => {
   text-align: center;
 }
 
-.avatar-uploader {
-  margin-top: 12px;
+.user-avatar {
+  background-color: #1890ff;
+  color: #fff;
+  font-size: 36px;
+  font-weight: bold;
 }
 
 .basic-info {
@@ -690,11 +424,6 @@ const maskEmail = (email) => {
   margin: 0;
   color: #8c8c8c;
   font-size: 14px;
-}
-
-.verify-code-input {
-  display: flex;
-  gap: 12px;
 }
 
 :deep(.el-tabs__item) {

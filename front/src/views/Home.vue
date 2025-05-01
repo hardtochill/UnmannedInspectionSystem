@@ -54,8 +54,27 @@
             <div class="status-count">{{ item.count }}台</div>
           </div>
         </div>
-        <div class="map-container">
-          <div ref="chinaMapChart" class="china-map"></div>
+        <div class="device-carousel" @mouseenter="showArrows = true" @mouseleave="showArrows = false">
+          <div class="carousel-header">
+            <span class="title">设备运行状态</span>
+          </div>
+          <div class="carousel-content">
+            <button class="arrow left" v-show="showArrows" @click="prevDevice" aria-label="上一台设备">&#8592;</button>
+            <div class="device-info" v-if="currentDevice">
+              <div class="device-image clickable" @click="goToDetail(currentDevice.id)">
+                <img :src="currentDevice.image" :alt="currentDevice.model">
+              </div>
+              <div class="device-meta">
+                <div class="device-model-status">
+                  <span class="device-model">{{ currentDevice.model }}</span>
+                  <span class="status-badge" :class="currentDevice.status">
+                    {{ getStatusText(currentDevice.status) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <button class="arrow right" v-show="showArrows" @click="nextDevice" aria-label="下一台设备">&#8594;</button>
+          </div>
         </div>
       </div>
 
@@ -78,12 +97,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import * as echarts from 'echarts';
 import 'echarts-gl';
 import { User } from '@element-plus/icons-vue';
 import { ElMessageBox, ElMessage } from 'element-plus';
+import { accountApi } from '../api/index';
 
 // Register map component
 echarts.registerMap('china', {
@@ -103,6 +123,7 @@ const navItems = [
   { name: '报警管理', path: '/alarm-management' },
   { name: '开停机记录', path: '/shutdown-record' },
   { name: '系统管理', path: '/system-management' }
+  // { name: '功能详情', path: '/features' }
 ];
 
 // 状态概览数据
@@ -112,6 +133,73 @@ const statusItems = ref([
   { type: 'stopped', label: '停机设备', value: 35, count: 34 },
   { type: 'offline', label: '断网设备', value: 18, count: 18 }
 ]);
+
+const showArrows = ref(false);
+
+// 设备列表数据（加id字段）
+const deviceList = ref([
+  {
+    id: 1,
+    model: 'XJ-2000',
+    image: 'https://example.com/device1.jpg',
+    status: 'normal',
+  },
+  {
+    id: 2,
+    model: 'XJ-3000',
+    image: 'https://example.com/device2.jpg',
+    status: 'warning',
+  },
+  {
+    id: 3,
+    model: 'XJ-4000',
+    image: 'https://example.com/device3.jpg',
+    status: 'stopped',
+  }
+]);
+
+const currentDeviceIndex = ref(0);
+const currentDevice = computed(() => deviceList.value[currentDeviceIndex.value]);
+
+// 轮播定时器
+let carouselTimer;
+
+// 切换设备
+const switchDevice = (index) => {
+  currentDeviceIndex.value = index;
+  resetCarouselTimer();
+};
+
+const prevDevice = () => {
+  currentDeviceIndex.value = (currentDeviceIndex.value - 1 + deviceList.value.length) % deviceList.value.length;
+  resetCarouselTimer();
+};
+
+const nextDevice = () => {
+  currentDeviceIndex.value = (currentDeviceIndex.value + 1) % deviceList.value.length;
+  resetCarouselTimer();
+};
+
+// 重置轮播定时器
+const resetCarouselTimer = () => {
+  if (carouselTimer) {
+    clearInterval(carouselTimer);
+  }
+  carouselTimer = setInterval(() => {
+    currentDeviceIndex.value = (currentDeviceIndex.value + 1) % deviceList.value.length;
+  }, 5000);
+};
+
+// 获取状态文本
+const getStatusText = (status) => {
+  const statusMap = {
+    normal: '正常运行',
+    warning: '异常运行',
+    stopped: '已停机',
+    offline: '离线'
+  };
+  return statusMap[status] || '未知状态';
+};
 
 // 图表引用
 const deviceTypeChart = ref(null);
@@ -127,11 +215,28 @@ let timer;
 
 // 用户信息
 const userInfo = ref({
-  name: localStorage.getItem('userName') || '管理员',
-  role: localStorage.getItem('userRole') || 'admin'
+  name: '管理员',
+  role: 0
 });
 
+// 在组件挂载时更新用户信息
+const updateUserInfo = () => {
+  const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+  userInfo.value = {
+    name: currentUser.name || '管理员',
+    role: currentUser.roleType || 0
+  };
+};
+
+// 跳转详情页
+const goToDetail = (id) => {
+  router.push(`/device-detail/${id}`);
+};
+
 onMounted(() => {
+  // 更新用户信息
+  updateUserInfo();
+  
   // 更新时间
   timer = setInterval(() => {
     currentTime.value = new Date().toLocaleString();
@@ -139,11 +244,15 @@ onMounted(() => {
 
   // 初始化图表
   initCharts();
+  resetCarouselTimer();
 });
 
 onBeforeUnmount(() => {
   if (timer) {
     clearInterval(timer);
+  }
+  if (carouselTimer) {
+    clearInterval(carouselTimer);
   }
 });
 
@@ -184,6 +293,61 @@ const initCharts = () => {
             { offset: 0, color: '#83bff6' },
             { offset: 0.5, color: '#188df0' },
             { offset: 1, color: '#188df0' }
+          ])
+        }
+      }]
+    });
+  }
+
+  // 设备运行状态图表
+  if (deviceStatusChart.value) {
+    const chart = echarts.init(deviceStatusChart.value);
+    chart.setOption({
+      grid: {
+        top: '10%',
+        left: '3%',
+        right: '4%',
+        bottom: '3%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
+        axisLine: {
+          lineStyle: { color: '#8c8c8c' }
+        }
+      },
+      yAxis: {
+        type: 'value',
+        axisLine: {
+          lineStyle: { color: '#8c8c8c' }
+        },
+        splitLine: {
+          lineStyle: { color: 'rgba(140, 140, 140, 0.2)' }
+        }
+      },
+      series: [{
+        name: '正常运行',
+        type: 'line',
+        data: [85, 82, 88, 90, 87, 89, 86],
+        smooth: true,
+        lineStyle: { color: '#52c41a' },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(82, 196, 26, 0.3)' },
+            { offset: 1, color: 'rgba(82, 196, 26, 0.1)' }
+          ])
+        }
+      }, {
+        name: '异常设备',
+        type: 'line',
+        data: [5, 8, 4, 3, 6, 4, 7],
+        smooth: true,
+        lineStyle: { color: '#faad14' },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(250, 173, 20, 0.3)' },
+            { offset: 1, color: 'rgba(250, 173, 20, 0.1)' }
           ])
         }
       }]
@@ -251,7 +415,105 @@ const initCharts = () => {
     });
   }
 
-  // 报警趋势图
+  // 报警统计列表
+  if (alarmStatChart.value) {
+    const chart = echarts.init(alarmStatChart.value);
+    chart.setOption({
+      grid: {
+        top: '10%',
+        left: '3%',
+        right: '4%',
+        bottom: '3%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        data: ['温度异常', '压力异常', '液位异常', '振动异常', '电流异常'],
+        axisLine: {
+          lineStyle: { color: '#8c8c8c' }
+        },
+        axisLabel: {
+          interval: 0,
+          rotate: 30
+        }
+      },
+      yAxis: {
+        type: 'value',
+        axisLine: {
+          lineStyle: { color: '#8c8c8c' }
+        },
+        splitLine: {
+          lineStyle: { color: 'rgba(140, 140, 140, 0.2)' }
+        }
+      },
+      series: [{
+        data: [45, 32, 28, 19, 15],
+        type: 'bar',
+        barWidth: '40%',
+        itemStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: '#ff4e50' },
+            { offset: 1, color: '#ff4e50' }
+          ])
+        }
+      }]
+    });
+  }
+
+  // 报警对比统计
+  if (alarmCompareChart.value) {
+    const chart = echarts.init(alarmCompareChart.value);
+    chart.setOption({
+      grid: {
+        top: '10%',
+        left: '3%',
+        right: '4%',
+        bottom: '3%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        data: ['1月', '2月', '3月', '4月', '5月', '6月'],
+        axisLine: {
+          lineStyle: { color: '#8c8c8c' }
+        }
+      },
+      yAxis: {
+        type: 'value',
+        axisLine: {
+          lineStyle: { color: '#8c8c8c' }
+        },
+        splitLine: {
+          lineStyle: { color: 'rgba(140, 140, 140, 0.2)' }
+        }
+      },
+      series: [{
+        name: '本月',
+        type: 'bar',
+        data: [120, 132, 101, 134, 90, 230],
+        barWidth: '30%',
+        itemStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: '#ff4e50' },
+            { offset: 1, color: '#ff4e50' }
+          ])
+        }
+      }, {
+        name: '上月',
+        type: 'bar',
+        data: [220, 182, 191, 234, 290, 330],
+        barWidth: '30%',
+        itemStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: '#8c8c8c' },
+            { offset: 1, color: '#8c8c8c' }
+          ])
+        }
+      }]
+    });
+  }
+
+  // 报警处理趋势
   if (alarmTrendChart.value) {
     const chart = echarts.init(alarmTrendChart.value);
     chart.setOption({
@@ -341,20 +603,30 @@ const handleCommand = async (command) => {
           }
         );
         
-        // 清除用户信息
-        localStorage.removeItem('token');
-        localStorage.removeItem('userName');
-        localStorage.removeItem('userRole');
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
         
-        // 显示退出成功提示
+        if (currentUser.userId) {
+          console.log('准备登出用户:', currentUser);
+          await accountApi.logout(currentUser.userId);
+        } else {
+          console.warn('未找到用户信息，直接清理存储');
+        }
+
+        // 完全清理本地存储
+        localStorage.clear();
+        
         ElMessage.success('退出成功');
-        
-        // 重定向到登录页
         router.push('/login');
       } catch (error) {
-        if (error !== 'cancel') {
-          ElMessage.error('退出失败');
+        if (error === 'cancel') {
+          return;
         }
+        console.error('登出错误:', error);
+        ElMessage.error('退出失败，请重试');
+        
+        // 即使失败也清理存储
+        localStorage.clear();
+        router.push('/login');
       }
       break;
   }
@@ -497,16 +769,137 @@ const handleCommand = async (command) => {
 .status-stopped .status-value { color: #ff4d4f; }
 .status-offline .status-value { color: #8c8c8c; }
 
-.map-container {
+.device-carousel {
   flex: 1;
   background-color: #282b30;
   border-radius: 8px;
   padding: 20px;
+  display: flex;
+  flex-direction: column;
 }
 
-.china-map {
-  height: 100%;
+.carousel-header {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.title {
+  font-size: 16px;
+  color: #fff;
+}
+
+.carousel-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.device-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
   width: 100%;
+  height: 100%;
+  background: none;
+}
+
+.device-image {
+  width: 90%;
+  height: 340px;
+  background-color: #1a1c1e;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+  margin: 0 auto;
+}
+
+.device-image img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.device-image.clickable:hover {
+  box-shadow: 0 0 0 2px #409eff;
+}
+
+.device-meta {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.device-model-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+  justify-content: center;
+}
+
+.device-model {
+  font-size: 24px;
+  color: #fff;
+  font-weight: bold;
+}
+
+.status-badge {
+  padding: 4px 14px;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #fff;
+}
+
+.status-badge.normal { background-color: #52c41a; }
+.status-badge.warning { background-color: #faad14; }
+.status-badge.stopped { background-color: #ff4d4f; }
+.status-badge.offline { background-color: #8c8c8c; }
+
+.arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(40,43,48,0.3);
+  border: none;
+  color: #fff;
+  font-size: 32px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 2;
+  transition: background 0.2s, color 0.2s, opacity 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  filter: blur(1px);
+}
+
+.device-carousel:hover .arrow {
+  opacity: 1;
+  pointer-events: auto;
+  filter: blur(0);
+}
+
+.arrow.left { left: 16px; }
+.arrow.right { right: 16px; }
+.arrow:hover {
+  background: #ff4e50;
+  color: #fff;
+  filter: none;
 }
 
 :deep(.el-dropdown-menu) {

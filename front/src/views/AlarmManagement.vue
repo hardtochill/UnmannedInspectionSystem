@@ -21,11 +21,6 @@
                 <el-option label="类型1" value="type1" />
                 <el-option label="类型2" value="type2" />
               </el-select>
-              <el-select v-model="alarmLevel" placeholder="报警等级" class="filter-item">
-                <el-option label="一级" value="1" />
-                <el-option label="二级" value="2" />
-                <el-option label="三级" value="3" />
-              </el-select>
               <el-select v-model="status" placeholder="处理状态" class="filter-item">
                 <el-option label="待处理" value="pending" />
                 <el-option label="处理中" value="processing" />
@@ -74,13 +69,6 @@
             <el-table-column type="index" label="序号" width="80" />
             <el-table-column prop="name" label="设备名称" />
             <el-table-column prop="type" label="报警类型" />
-            <el-table-column prop="level" label="报警等级">
-              <template #default="{ row }">
-                <el-tag :type="getAlarmLevelType(row.level)">
-                  {{ row.level }}级
-                </el-tag>
-              </template>
-            </el-table-column>
             <el-table-column prop="time" label="报警时间" />
             <el-table-column prop="status" label="处理状态">
               <template #default="{ row }">

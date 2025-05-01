@@ -2,7 +2,7 @@
  * @Author: Fhx0902 YJX040124@outlook.com
  * @Date: 2025-04-18 23:01:31
  * @LastEditors: Fhx0902 YJX040124@outlook.com
- * @LastEditTime: 2025-04-19 23:46:24
+ * @LastEditTime: 2025-04-30 19:19:23
  * @FilePath: \front\src\components\CommonHeader.vue
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -17,13 +17,13 @@
       <el-dropdown @command="handleCommand">
         <span class="user-info">
           <el-icon><User /></el-icon>
-          {{ currentUser?.username || '管理员' }}
+          {{ currentUser?.name || '未登录' }}
           <el-icon><CaretBottom /></el-icon>
         </span>
         <template #dropdown>
           <el-dropdown-menu>
             <el-dropdown-item command="profile">个人信息</el-dropdown-item>
-            <el-dropdown-item command="logout">退出登录</el-dropdown-item>
+            <!-- <el-dropdown-item command="logout">退出登录</el-dropdown-item> -->
           </el-dropdown-menu>
         </template>
       </el-dropdown>
@@ -159,13 +159,20 @@ import { User, CaretBottom, Setting, Bell, Warning, InfoFilled } from '@element-
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/zh-cn';
+import { accountApi } from '@/api';
 
 dayjs.extend(relativeTime);
 dayjs.locale('zh-cn');
 
 const router = useRouter();
 const currentTime = ref(new Date().toLocaleString());
-const currentUser = ref(JSON.parse(localStorage.getItem('currentUser')));
+
+// 修改用户信息获取方式
+const currentUser = ref(null);
+const updateUserInfo = () => {
+  const userInfo = JSON.parse(localStorage.getItem('currentUser') || '{}');
+  currentUser.value = userInfo;
+};
 
 // 系统设置相关
 const isDarkTheme = ref(localStorage.getItem('theme') === 'dark');
@@ -213,19 +220,36 @@ const unreadCount = computed(() => {
 });
 
 // 处理下拉菜单命令
-const handleCommand = (command) => {
+const handleCommand = async (command) => {
   switch (command) {
     case 'profile':
       router.push('/profile');
       break;
     case 'logout':
-      // 清除登录状态
-      localStorage.removeItem('token');
-      localStorage.removeItem('currentUser');
-      // 提示信息
-      ElMessage.success('已退出登录');
-      // 跳转到登录页
-      router.push('/login');
+      try {
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        console.log('准备登出用户:', currentUser);
+        
+        if (currentUser.userId) {
+          // 先发送登出请求
+          const response = await accountApi.logout(currentUser.userId);
+          
+          if (response.code === 200) {
+            ElMessage.success('退出成功');
+          } else {
+            console.warn('登出请求返回异常:', response);
+            ElMessage.warning('登出异常，请重试');
+          }
+        } else {
+          console.warn('未找到用户ID，直接清理存储');
+        }
+        
+        router.push('/login');
+      } catch (error) {
+        console.error('登出错误:', error);
+        ElMessage.error('退出失败，请重试');
+        router.push('/login');
+      }
       break;
   }
 };
@@ -298,7 +322,11 @@ const startRefreshTimer = () => {
   }
 };
 
+// 在组件挂载时更新用户信息
 onMounted(() => {
+  // 更新用户信息
+  updateUserInfo();
+  
   // 更新时间
   setInterval(() => {
     currentTime.value = new Date().toLocaleString();

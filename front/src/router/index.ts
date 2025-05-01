@@ -2,7 +2,7 @@
  * @Author: Fhx0902 YJX040124@outlook.com
  * @Date: 2025-04-18 13:39:54
  * @LastEditors: Fhx0902 YJX040124@outlook.com
- * @LastEditTime: 2025-04-21 20:18:38
+ * @LastEditTime: 2025-04-30 19:16:57
  * @FilePath: \front\src\router\index.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -24,7 +24,7 @@ interface RouteMeta {
 const routes: Array<RouteRecordRaw> = [
   {
     path: '/',
-    redirect: '/login'
+    redirect: '/home'
   },
   {
     path: '/login',
@@ -44,24 +44,12 @@ const routes: Array<RouteRecordRaw> = [
     component: Workspace,
     meta: { requiresAuth: true }
   },
-//   { 
-//     path: '/status-monitoring', 
-//     name: '状态监控', 
-//     component: StatusMonitoring,
-//     meta: { requiresAuth: true },
-//     children: [
-//       {
-//         path: 'device-detail/:id',
-//         name: 'DeviceDetail',
-//         component: () => import('@/views/DeviceDetail.vue')
-//       },
-//       {
-//         path: 'device-monitor/:id',
-//         name: 'DeviceMonitor',
-//         component: () => import('@/views/DeviceMonitor.vue')
-//       }
-//     ]
-//   },
+  { 
+    path: '/status-monitoring', 
+    name: '状态监控', 
+    component: StatusMonitoring,
+    meta: { requiresAuth: true }
+  },
   { 
     path: '/alarm-management', 
     name: '报警管理', 
@@ -82,30 +70,25 @@ const routes: Array<RouteRecordRaw> = [
   },
   { 
     path: '/admin', 
-    name: 'Admin', 
+    name: '管理员', 
     component: Admin,
     meta: { requiresAuth: true }
   },
   {
     path: '/device-detail/:id',
-    name: 'DeviceDetail',
-    component: () => import('@/views/DeviceDetail.vue')
+    name: '设备详情',
+    component: () => import('@/views/DeviceDetail.vue'),
+    meta: { requiresAuth: true }
   },
   {
     path: '/device-monitor/:id',
-    name: 'DeviceMonitor',
+    name: '设备监管',
     component: () => import('@/views/DeviceMonitor.vue'),
     meta: { requiresAuth: true }
   },
   {
-    path: '/status-monitoring',
-    name: '状态监控',
-    component: StatusMonitoring,
-    meta: { requiresAuth: true }
-  },
-  {
     path: '/alarm-process/:id',
-    name: 'AlarmProcess',
+    name: '报警处理',
     component: () => import('@/views/AlarmProcess.vue'),
     meta: { requiresAuth: true }
   },
@@ -114,6 +97,61 @@ const routes: Array<RouteRecordRaw> = [
     name: '个人信息',
     component: () => import('@/views/Profile.vue'),
     meta: { requiresAuth: true }
+  },
+  // 功能详情路由
+  {
+    path: '/pipe-leak',
+    name: '管道泄露检测',
+    component: () => import('@/views/features/PipeLeak.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/liquid-level',
+    name: '液面检测',
+    component: () => import('@/views/features/LiquidLevel.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/digital-meter',
+    name: '数字仪表识别',
+    component: () => import('@/views/features/DigitalMeter.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/indicator-light',
+    name: '指示灯状态识别',
+    component: () => import('@/views/features/IndicatorLight.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/liquid-level-recognition',
+    name: '液位识别',
+    component: () => import('@/views/features/LiquidLevelRecognition.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/pointer-meter-recognition',
+    name: '指针表识别',
+    component: () => import('@/views/features/PointerMeterRecognition.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/switch-recognition',
+    name: '开关识别',
+    component: () => import('@/views/features/SwitchRecognition.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/flow-status-recognition',
+    name: '流水状态识别',
+    component: () => import('@/views/features/FlowStatusRecognition.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'NotFound',
+    component: () => import('@/views/NotFound.vue'),
+    meta: { requiresAuth: false }
   }
 ];
 
@@ -122,17 +160,17 @@ const router = createRouter({
   routes 
 });
 
-// 路由守卫
-router.beforeEach((to, from, next) => {
-  const isAuthenticated = localStorage.getItem('token'); // 检查是否已登录
+// // 路由守卫
+// router.beforeEach((to, from, next) => {
+//   const isAuthenticated = localStorage.getItem('token'); // 检查是否已登录
   
-  if (to.meta.requiresAuth && !isAuthenticated) {
-    next('/login');
-  } else if (to.path === '/login' && isAuthenticated) {
-    next('/home');
-  } else {
-    next();
-  }
-});
+//   if (to.meta.requiresAuth && !isAuthenticated) {
+//     next('/login');
+//   } else if (to.path === '/login' && isAuthenticated) {
+//     next('/home');
+//   } else {
+//     next();
+//   }
+// });
 
 export default router; 
