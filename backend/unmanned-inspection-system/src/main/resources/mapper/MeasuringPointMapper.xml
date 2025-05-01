@@ -22,5 +22,19 @@
             where mp_id = #{mpId}
     </update>
 
+    <!--测点批量查询-->
+    <select id="findByStatus" resultType="cn.lqz.unmannedinspectionsystem.pojo.vo.MeasuringPointVO">
+        select d.name as deviceName, mp.name as measuringPointName, mp.status as measuringPointStatus
+        from measuring_point mp
+        left outer join device d on mp.device_id = d.device_id
+        left outer join workshop w on d.workshop_id = w.workshop_id
+        <where>
+            <if test="workshopName!=null">and w.name like concat('%',#{workshopName},'%')</if>
+            <if test="deviceType!=null">and d.device_type=#{deviceType}</if>
+            <if test="status!=null">and mp.status =#{status}</if>
+            <if test="deviceName!=null">and d.name like concat('%',#{deviceName},'%')</if>
+        </where>
+    </select>
+
 
 </mapper>

@@ -23,8 +23,9 @@
         </set>
         where user_id=#{userId}
     </update>
+
     <!--查询-->
-    <select id="findBatch" resultType="cn.lqz.unmannedinspectionsystem.pojo.entity.User">
+    <select id="findBatch" resultType="cn.lqz.unmannedinspectionsystem.pojo.vo.UserVO">
         select * from user
         <where>
             <if test="userId!=null">and user_id=#{userId}</if>

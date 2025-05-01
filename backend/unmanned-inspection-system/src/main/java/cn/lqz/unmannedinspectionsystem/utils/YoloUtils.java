@@ -25,6 +25,9 @@ public class YoloUtils {
         }
         // 入参图片文件
         File inputFile = new File(inputFilePath);
+
+        // 执行pyton脚本
+
         // 出参图片文件
         String outputImageFilePath = FilePathUtils.generateYoloOutputImageFilePath(outputFileFolderPath, uuid);
         File outputFile = new File(outputImageFilePath);

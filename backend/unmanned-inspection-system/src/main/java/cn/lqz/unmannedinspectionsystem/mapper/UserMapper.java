@@ -2,7 +2,10 @@ package cn.lqz.unmannedinspectionsystem.mapper;
 
 import cn.lqz.unmannedinspectionsystem.annotations.AutoFill;
 import cn.lqz.unmannedinspectionsystem.enums.OperationTypeEnum;
+import cn.lqz.unmannedinspectionsystem.pojo.dto.UserPageQueryDTO;
 import cn.lqz.unmannedinspectionsystem.pojo.entity.User;
+import cn.lqz.unmannedinspectionsystem.pojo.vo.UserVO;
+import com.github.pagehelper.Page;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
 
@@ -26,4 +29,6 @@ public interface UserMapper {
      */
     @AutoFill(OperationTypeEnum.UPDATE)
     void update(User user);
+
+    Page<UserVO> findBatch(UserPageQueryDTO userPageQueryDTO);
 }

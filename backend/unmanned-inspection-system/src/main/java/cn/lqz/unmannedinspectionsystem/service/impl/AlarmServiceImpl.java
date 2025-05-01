@@ -27,9 +27,10 @@ public class AlarmServiceImpl implements AlarmService {
         log.info("报警记录分页查询：{}",alarmPageQueryDTO);
         PageHelper.startPage(alarmPageQueryDTO.getPageNo(), alarmPageQueryDTO.getPageSize());
         Page<AlarmVO> alarmPage =  alarmMapper.findBatch(alarmPageQueryDTO);
-        // 根据报警类型int值填入报警类型String值
+        // 根据报警类型int值填入报警类型String值，异常测点的状态就是报警的类型
         for (AlarmVO alarmVO : alarmPage) {
-            alarmVO.setTypeString(MeasuringPointStatusEnum.getByStatus(alarmVO.getType()).getDescription());
+            MeasuringPointStatusEnum mpse = MeasuringPointStatusEnum.getByStatus(alarmVO.getType());
+            alarmVO.setTypeString(mpse==null?"无":mpse.getDescription());
         }
         return new PageResultVO(alarmPageQueryDTO.getPageNo(), alarmPageQueryDTO.getPageSize(), alarmPage.getTotal(), alarmPage.getResult());
     }

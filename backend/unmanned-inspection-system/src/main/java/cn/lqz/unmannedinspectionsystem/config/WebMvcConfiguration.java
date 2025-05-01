@@ -84,7 +84,7 @@ public class WebMvcConfiguration implements WebMvcConfigurer {
     public void addCorsMappings(CorsRegistry registry){
         registry.addMapping("/**")
                 // 允许的域
-                .allowedOrigins("http://localhost:5173")
+                .allowedOrigins("http://localhost:8081")
                 // 允许发送Cookie信息
                 .allowCredentials(true)
                 // 允许的头信息

@@ -47,7 +47,7 @@ public class DetectServiceImpl implements DetectService {
             log.error("图片输入异常");
             throw new BaseException(ResponseCodeEnum.CODE_500);
         }
-
+        // todo 检测
         // python脚本调用，得到输出文件的路径
         String outputFilePath = YoloUtils.execute(yoloConfig.getOutputImageFolder(),uuid.toString(),inputFile.getAbsolutePath());
 
@@ -75,6 +75,9 @@ public class DetectServiceImpl implements DetectService {
         }catch (Exception e){
             log.error("图片输出异常");
             throw new BaseException(ResponseCodeEnum.CODE_500);
+        }finally {
+            inputFile.delete();
+            outputFile.delete();
         }
     }
 }

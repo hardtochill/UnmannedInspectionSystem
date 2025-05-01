@@ -6,7 +6,8 @@ import cn.lqz.unmannedinspectionsystem.pojo.entity.MeasuringPoint;
  * 测点状态枚举
  */
 public enum MeasuringPointStatusEnum {
-    ;
+    NORMAL(0,"正常运行"),
+    ABNORMAL(1,"异常");
     private Integer status;
     private String description;
     MeasuringPointStatusEnum(Integer status,String description){

@@ -61,6 +61,7 @@ const handleSubmit = async () => {
       // 发生错误时清除可能的部分数据
       localStorage.clear();
     }
+    
   } else {
     // 注册逻辑 - 如果后端没有注册接口，可以隐藏注册功能
     ElMessage.info('请联系管理员创建账号');

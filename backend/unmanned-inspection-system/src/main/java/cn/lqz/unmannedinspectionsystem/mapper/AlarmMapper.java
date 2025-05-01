@@ -24,6 +24,7 @@ public interface AlarmMapper {
     @AutoFill(OperationTypeEnum.UPDATE)
     void update(Alarm alarm);
 
+
     /**
      * 批量查询
      * @param alarmPageQueryDTO
