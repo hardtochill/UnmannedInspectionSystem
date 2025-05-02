@@ -7,6 +7,7 @@ import cn.lqz.unmannedinspectionsystem.pojo.entity.Alarm;
 import cn.lqz.unmannedinspectionsystem.pojo.vo.AlarmVO;
 import com.github.pagehelper.Page;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Select;
 
 @Mapper
 public interface AlarmMapper {
@@ -31,4 +32,20 @@ public interface AlarmMapper {
      * @return
      */
     Page<AlarmVO> findBatch(AlarmPageQueryDTO alarmPageQueryDTO);
+
+    /**
+     * 统计状态
+     * @param status
+     * @return
+     */
+    @Select("select count(*) from alarm where status=#{status}")
+    Long countByStatus(Integer status);
+
+    /**
+     * 统计不同报警状态的设备数量
+     * @param status
+     * @return
+     */
+    @Select("select count(device_id) from alarm where status=#{status}")
+    Integer countDeviceByStatus(Integer status);
 }

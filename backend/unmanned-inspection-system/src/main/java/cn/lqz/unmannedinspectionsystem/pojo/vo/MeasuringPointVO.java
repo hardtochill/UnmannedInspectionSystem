@@ -9,6 +9,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class MeasuringPointVO {
     /**
+     * 测点id
+     */
+    private Long mpId;
+    /**
      * 设备名称
      */
     private String deviceName;

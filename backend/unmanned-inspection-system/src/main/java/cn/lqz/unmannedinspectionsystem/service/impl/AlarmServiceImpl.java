@@ -1,8 +1,11 @@
 package cn.lqz.unmannedinspectionsystem.service.impl;
 
+import cn.lqz.unmannedinspectionsystem.enums.AlarmStatusEnum;
 import cn.lqz.unmannedinspectionsystem.enums.MeasuringPointStatusEnum;
 import cn.lqz.unmannedinspectionsystem.mapper.AlarmMapper;
 import cn.lqz.unmannedinspectionsystem.pojo.dto.AlarmPageQueryDTO;
+import cn.lqz.unmannedinspectionsystem.pojo.entity.Alarm;
+import cn.lqz.unmannedinspectionsystem.pojo.vo.AlarmStatusCountVO;
 import cn.lqz.unmannedinspectionsystem.pojo.vo.AlarmVO;
 import cn.lqz.unmannedinspectionsystem.pojo.vo.PageResultVO;
 import cn.lqz.unmannedinspectionsystem.service.AlarmService;
@@ -33,5 +36,29 @@ public class AlarmServiceImpl implements AlarmService {
             alarmVO.setTypeString(mpse==null?"无":mpse.getDescription());
         }
         return new PageResultVO(alarmPageQueryDTO.getPageNo(), alarmPageQueryDTO.getPageSize(), alarmPage.getTotal(), alarmPage.getResult());
+    }
+
+    /**
+     * 标记已处理
+     * @param alarmId
+     */
+    @Override
+    public void changeToProcessed(Long alarmId) {
+        log.info("报警记录：标记已处理：{}",alarmId);
+        Alarm alarm = new Alarm();
+        alarm.setAlarmId(alarmId);
+        alarm.setStatus(AlarmStatusEnum.PROCESSED.getStatus());
+        alarmMapper.update(alarm);
+    }
+
+    /**
+     * 统计处理状态
+     * @return
+     */
+    @Override
+    public AlarmStatusCountVO countStatus() {
+        Long unprocessedCount = alarmMapper.countByStatus(AlarmStatusEnum.UNPROCESSED.getStatus());
+        Long processedCount = alarmMapper.countByStatus(AlarmStatusEnum.PROCESSED.getStatus());
+        return new AlarmStatusCountVO(unprocessedCount,processedCount);
     }
 }

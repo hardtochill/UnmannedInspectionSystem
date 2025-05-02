@@ -1,6 +1,7 @@
 package cn.lqz.unmannedinspectionsystem.controller;
 
 import cn.lqz.unmannedinspectionsystem.pojo.dto.UserPageQueryDTO;
+import cn.lqz.unmannedinspectionsystem.pojo.entity.User;
 import cn.lqz.unmannedinspectionsystem.pojo.vo.PageResultVO;
 import cn.lqz.unmannedinspectionsystem.pojo.vo.ResponseVO;
 import cn.lqz.unmannedinspectionsystem.service.UserService;
@@ -26,4 +27,14 @@ public class UserController {
         return ResponseUtils.success(userService.loadUserList(userPageQueryDTO));
     }
 
+    /**
+     * 新增或修改用户信息
+     * @param user
+     * @return
+     */
+    @PostMapping("/createOrUpdate")
+    public ResponseVO createOrUpdate(User user){
+        userService.createOrUpdate(user);
+        return ResponseUtils.success();
+    }
 }

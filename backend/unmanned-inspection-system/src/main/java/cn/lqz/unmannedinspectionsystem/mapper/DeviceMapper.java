@@ -4,6 +4,7 @@ import cn.lqz.unmannedinspectionsystem.annotations.AutoFill;
 import cn.lqz.unmannedinspectionsystem.enums.OperationTypeEnum;
 import cn.lqz.unmannedinspectionsystem.pojo.entity.Device;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Select;
 
 @Mapper
 public interface DeviceMapper {
@@ -20,4 +21,12 @@ public interface DeviceMapper {
      */
     @AutoFill(OperationTypeEnum.UPDATE)
     void update(Device device);
+
+    /**
+     * 根据状态统计
+     * @param status
+     * @return
+     */
+    @Select("select count(*) from device where run_status=#{status}")
+    Integer countByStatus(Integer status);
 }

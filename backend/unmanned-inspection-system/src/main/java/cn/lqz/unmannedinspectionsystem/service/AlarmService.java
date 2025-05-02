@@ -1,6 +1,7 @@
 package cn.lqz.unmannedinspectionsystem.service;
 
 import cn.lqz.unmannedinspectionsystem.pojo.dto.AlarmPageQueryDTO;
+import cn.lqz.unmannedinspectionsystem.pojo.vo.AlarmStatusCountVO;
 import cn.lqz.unmannedinspectionsystem.pojo.vo.PageResultVO;
 
 public interface AlarmService {
@@ -10,4 +11,16 @@ public interface AlarmService {
      * @return
      */
     PageResultVO loadAlarmList(AlarmPageQueryDTO alarmPageQueryDTO);
+
+    /**
+     * 标记已处理
+     * @param alarmId
+     */
+    void changeToProcessed(Long alarmId);
+
+    /**
+     * 统计处理状态
+     * @return
+     */
+    AlarmStatusCountVO countStatus();
 }

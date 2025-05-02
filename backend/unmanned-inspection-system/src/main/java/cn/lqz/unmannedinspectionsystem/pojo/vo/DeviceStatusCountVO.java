@@ -7,10 +7,13 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserVO {
-    private Long userId;
-    private String name;
-    private String phoneNumber;
-    private Integer roleType;
-    private Integer status;
+public class DeviceStatusCountVO {
+    /**
+     * 运行中设备数
+     */
+    private Integer runningCount;
+    /**
+     * 报警设备数
+     */
+    private Integer alarmCount;
 }
