@@ -33,12 +33,6 @@ public class ResponseUtils {
         return success(message, object);
     }
 
-    /**
-     * 操作成功：自定义提示信息
-     */
-    public static <T> ResponseVO<T> success(String msg) {
-        return success(msg, null);
-    }
 
     /**
      * 操作成功：默认提示信息

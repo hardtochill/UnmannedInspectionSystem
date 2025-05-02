@@ -77,7 +77,6 @@ service:
     username: ${unmanned-inspection-system.service.database.username}
     password: ${unmanned-inspection-system.service.database.password}
     dbName: ${unmanned-inspection-system.service.database.dbName}
-
   # yolov5 模型参数配置
   yolo:
     # 入参图片文件夹
@@ -88,3 +87,6 @@ service:
     model-file-folder-path: ${unmanned-inspection-system.service.yolo.model-file-folder-path}
     # 模型执行器
     executor-path: ${unmanned-inspection-system.service.yolo.executor-path}
+  # 测点图片文件夹
+  mp:
+    image-folder-path: ${unmanned-inspection-system.service.mp.image-folder-path}

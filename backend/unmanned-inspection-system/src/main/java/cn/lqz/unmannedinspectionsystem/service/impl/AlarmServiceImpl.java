@@ -15,6 +15,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.time.temporal.TemporalAdjusters;
+import java.util.*;
+
 @Service
 @Slf4j
 @RequiredArgsConstructor
@@ -48,6 +52,7 @@ public class AlarmServiceImpl implements AlarmService {
         Alarm alarm = new Alarm();
         alarm.setAlarmId(alarmId);
         alarm.setStatus(AlarmStatusEnum.PROCESSED.getStatus());
+        alarm.setProcessedTime(LocalDateTime.now());
         alarmMapper.update(alarm);
     }
 
@@ -57,8 +62,76 @@ public class AlarmServiceImpl implements AlarmService {
      */
     @Override
     public AlarmStatusCountVO countStatus() {
+        log.info("统计报警记录处理状态");
         Long unprocessedCount = alarmMapper.countByStatus(AlarmStatusEnum.UNPROCESSED.getStatus());
         Long processedCount = alarmMapper.countByStatus(AlarmStatusEnum.PROCESSED.getStatus());
         return new AlarmStatusCountVO(unprocessedCount,processedCount);
+    }
+
+    /**
+     * 统计类型
+     * @return
+     */
+    @Override
+    public Map<String, Long> countType() {
+        log.info("统计报警记录的类型");
+        List<Alarm> alarmList = alarmMapper.selectAll();
+        Map<String,Long> alarmTypeMap = new HashMap<>();
+        for (Alarm alarm : alarmList) {
+            String typeName = MeasuringPointStatusEnum.getByStatus(alarm.getType()).getDescription();
+            alarmTypeMap.put(typeName,alarmTypeMap.getOrDefault(typeName,0L)+1);
+        }
+        return alarmTypeMap;
+    }
+
+    /**
+     * 根据月份统计报警记录
+     * @return
+     */
+    @Override
+    public Map<Integer, Long> countAlarmTimeByMonth() {
+        log.info("统计近5个月报警记录");
+        // 当前时间
+        LocalDateTime now = LocalDateTime.now();
+        LinkedHashMap<Integer,Long> monthCountMap = new LinkedHashMap<>();
+        for(int i=4;i>=0;i--){
+            monthCountMap.put(now.getMonthValue()-i,0L);
+        }
+        // 查表
+        for (Integer month : monthCountMap.keySet()) {
+            // 去年 or 今年
+            Integer year = month>now.getMonthValue()? now.getYear()-1:now.getYear();
+            LocalDateTime startTime = LocalDateTime.of(year, month, 1, 0, 0, 0);
+            LocalDateTime endTime = LocalDateTime.of(year, month,  1, 23, 59, 59, 999999999)
+                    .with(TemporalAdjusters.lastDayOfMonth());
+            Long count = alarmMapper.countByAlarmTime(startTime,endTime);
+            monthCountMap.put(month,count);
+        }
+        return monthCountMap;
+    }
+
+    /**
+     * 根据月份统计已处理报警记录
+     * @return
+     */
+    public Map<Integer,Long> countProcessedTimeByMonth(){
+        log.info("统计近5个月已处理报警记录");
+        // 当前时间
+        LocalDateTime now = LocalDateTime.now();
+        LinkedHashMap<Integer,Long> monthCountMap = new LinkedHashMap<>();
+        for(int i=4;i>=0;i--){
+            monthCountMap.put(now.getMonthValue()-i,0L);
+        }
+        // 查表
+        for (Integer month : monthCountMap.keySet()) {
+            // 去年 or 今年
+            Integer year = month>now.getMonthValue()? now.getYear()-1:now.getYear();
+            LocalDateTime startTime = LocalDateTime.of(year, month, 1, 0, 0, 0);
+            LocalDateTime endTime = LocalDateTime.of(year, month,  1, 23, 59, 59, 999999999)
+                    .with(TemporalAdjusters.lastDayOfMonth());
+            Long count = alarmMapper.countByProcessedTime(startTime,endTime);
+            monthCountMap.put(month,count);
+        }
+        return monthCountMap;
     }
 }

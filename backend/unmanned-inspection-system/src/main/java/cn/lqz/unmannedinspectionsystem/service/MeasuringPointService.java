@@ -10,4 +10,10 @@ public interface MeasuringPointService {
      * @return
      */
     PageResultVO loadMeasuringPointList(MeasuringPointPageQueryDTO measuringPointPageQueryDTO);
+
+    /**
+     * 获取测点图片
+     * @param mpId
+     */
+    String loadImage(Long mpId);
 }

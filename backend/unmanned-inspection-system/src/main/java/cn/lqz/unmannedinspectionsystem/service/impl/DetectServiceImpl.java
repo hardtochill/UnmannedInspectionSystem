@@ -14,8 +14,12 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.util.Base64;
 import java.util.UUID;
 
 @Slf4j
@@ -28,7 +32,7 @@ public class DetectServiceImpl implements DetectService {
      * @param image
      */
     @Override
-    public void detect(MultipartFile image) {
+    public String detect(MultipartFile image) {
         log.info("图片检测");
         // 图片目录生成
         File yoloInputImageFileFolder = new File(yoloConfig.getInputImageFolder());
@@ -50,27 +54,16 @@ public class DetectServiceImpl implements DetectService {
 
         // 读取图片
         File outputFile = new File(FilePathUtils.generateYoloOutputImageFilePath(yoloConfig.getOutputImageFolder(),uuid.toString()));
-        // 文件流返回
-        // 1.获取请求的输出流
-        ServletRequestAttributes requestAttributes = (ServletRequestAttributes)RequestContextHolder.getRequestAttributes();
-        HttpServletResponse response = requestAttributes.getResponse();
-        response.setContentType("application/x-msdownload;charset=UTF-8");
-        response.setHeader("Content-Disposition","attachment;");
-        response.setContentLengthLong(outputFile.length());
-        try(
-                FileInputStream outputFileInputStream = new FileInputStream(outputFile);
-                ServletOutputStream responseOutputStream = response.getOutputStream()
-        ){
-            // 2.字节流拷贝返回
-            // 缓冲区
-            byte[] byteData = new byte[1024];
-            int length;
-            while((length=outputFileInputStream.read(byteData))!=-1){
-                responseOutputStream.write(byteData,0,length);
-            }
-            responseOutputStream.flush();
+        // 转Base64返回
+        try{
+            BufferedImage bufferedImage = ImageIO.read(outputFile);
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+            ImageIO.write(bufferedImage,"jpg",byteArrayOutputStream);
+            byte[] imageBytes = byteArrayOutputStream.toByteArray();
+            return Base64.getEncoder().encodeToString(imageBytes);
+
         }catch (Exception e){
-            log.error("图片输出异常");
+            log.error("加载测点图片失败");
             throw new BaseException(ResponseCodeEnum.CODE_500);
         }
     }

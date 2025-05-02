@@ -9,6 +9,9 @@ import com.github.pagehelper.Page;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Select;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 @Mapper
 public interface AlarmMapper {
     /**
@@ -48,4 +51,26 @@ public interface AlarmMapper {
      */
     @Select("select count(device_id) from alarm where status=#{status}")
     Integer countDeviceByStatus(Integer status);
+
+    /**
+     * 统计报警记录的类型
+     * @return
+     */
+    @Select("select * from alarm")
+    List<Alarm> selectAll();
+
+    /**
+     * 根据报警时间统计
+     * @param startTime
+     * @param endTime
+     * @return
+     */
+    Long countByAlarmTime(LocalDateTime startTime, LocalDateTime endTime);
+    /**
+     * 根据处理时间时间统计
+     * @param startTime
+     * @param endTime
+     * @return
+     */
+    Long countByProcessedTime(LocalDateTime startTime, LocalDateTime endTime);
 }

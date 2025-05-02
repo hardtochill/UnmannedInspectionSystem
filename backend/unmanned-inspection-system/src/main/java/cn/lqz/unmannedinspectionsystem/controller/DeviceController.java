@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/device")
 @RequiredArgsConstructor
@@ -17,5 +19,10 @@ public class DeviceController {
     @PostMapping("/countStatus")
     public ResponseVO<DeviceStatusCountVO> countStatus() {
         return ResponseUtils.success(deviceService.countStatus());
+    }
+
+    @PostMapping("/countType")
+    public ResponseVO<Map<String,Integer>> countType(){
+        return ResponseUtils.success(deviceService.countType());
     }
 }

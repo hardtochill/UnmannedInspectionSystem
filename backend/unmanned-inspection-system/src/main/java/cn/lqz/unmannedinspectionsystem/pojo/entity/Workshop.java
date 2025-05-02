@@ -23,4 +23,8 @@ public class Workshop extends BaseEntity{
      * 车间状态
      */
     private Integer status;
+    /**
+     * 拥有的设备数目
+     */
+    private Integer deviceCount;
 }

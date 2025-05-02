@@ -24,10 +24,9 @@
     </update>
 
     <select id="findBatch" resultType="cn.lqz.unmannedinspectionsystem.pojo.vo.AlarmVO">
-        select a.*,d.name as deviceName,mp.status as type,a.status as status
+        select a.*,d.name as deviceName,a.status as status
         from `alarm` a
         left outer join `device` d on a.device_id=d.device_id
-        left outer join `measuring_point` mp on a.mp_id = mp.mp_id
         <where>
             <if test="deviceType!=null">and d.device_type=#{deviceType}</if>
             <if test="status!=null">and a.status=#{status}</if>
@@ -35,5 +34,15 @@
             <if test="endTime!=null">and alarm_time &lt;= #{endTime}</if>
         </where>
         order by alarm_time desc
+    </select>
+    <select id="countByAlarmTime" resultType="java.lang.Long">
+        select count(*)
+        from `alarm`
+        where alarm_time &gt;= #{startTime} and alarm_time &lt;= #{endTime}
+    </select>
+    <select id="countByProcessedTime" resultType="java.lang.Long">
+        select count(*)
+        from `alarm`
+        where processed_time &gt;= #{startTime} and processed_time &lt;= #{endTime}
     </select>
 </mapper>

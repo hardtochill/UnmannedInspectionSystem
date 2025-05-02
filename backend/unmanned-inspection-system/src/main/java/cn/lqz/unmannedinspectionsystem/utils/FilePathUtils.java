@@ -40,4 +40,8 @@ public class FilePathUtils {
     public static String generateYoloModelFilePath(String folderPath,String modelName){
         return folderPath + FileConstants.PATH_SEPARATOR + modelName + FileConstants.MODEL_SUFFIX;
     }
+
+    public static String generateMpImageFilePath(String folderPath,Long mpId){
+        return folderPath + FileConstants.PATH_SEPARATOR + mpId + FileConstants.IMAGE_SUFFIX;
+    }
 }

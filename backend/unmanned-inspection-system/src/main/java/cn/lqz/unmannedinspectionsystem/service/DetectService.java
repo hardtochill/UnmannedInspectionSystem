@@ -4,5 +4,5 @@ import org.springframework.web.multipart.MultipartFile;
 
 public interface DetectService {
 
-    void detect(MultipartFile image);
+    String detect(MultipartFile image);
 }

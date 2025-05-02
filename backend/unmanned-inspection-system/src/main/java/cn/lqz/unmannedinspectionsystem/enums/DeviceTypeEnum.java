@@ -5,7 +5,8 @@ package cn.lqz.unmannedinspectionsystem.enums;
  */
 public enum DeviceTypeEnum {
     PUMP(0,"水泵"),
-    EDI(1,"EDI装置");
+    EDI(1,"EDI装置"),
+    PIPELINE(2,"管道");
     private Integer type;
     private String description;
 

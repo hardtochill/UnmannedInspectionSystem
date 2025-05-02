@@ -26,6 +26,10 @@ public class Alarm extends BaseEntity{
      */
     private Long mpId;
     /**
+     * 报警类型/异常测点的状态
+     */
+    private Integer type;
+    /**
      * 报警描述
      */
     private String description;
@@ -37,4 +41,8 @@ public class Alarm extends BaseEntity{
      * 报警时间
      */
     private LocalDateTime alarmTime;
+    /**
+     * 处理时间点
+     */
+    private LocalDateTime processedTime;
 }

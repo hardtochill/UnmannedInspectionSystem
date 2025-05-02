@@ -7,7 +7,11 @@ import cn.lqz.unmannedinspectionsystem.pojo.entity.MeasuringPoint;
  */
 public enum MeasuringPointStatusEnum {
     NORMAL(0,"正常运行"),
-    ABNORMAL(1,"异常");
+    PIPELINE_LEAKAGE(1,"管道泄漏"),
+    LIGHT_ABNORMAL(2,"指示灯异常"),
+    LIQUID_LEAKAGE(3,"液体泄露"),
+    POINTER_ABNORMAL(4,"指针异常"),
+    READING_ABNORMAL(5,"读数异常");
     private Integer status;
     private String description;
     MeasuringPointStatusEnum(Integer status,String description){

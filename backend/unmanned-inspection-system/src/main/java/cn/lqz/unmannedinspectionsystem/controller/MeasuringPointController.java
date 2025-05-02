@@ -20,4 +20,9 @@ public class MeasuringPointController {
     public ResponseVO<PageResultVO> loadMeasuringPointList(MeasuringPointPageQueryDTO measuringPointPageQueryDTO){
         return ResponseUtils.success(measuringPointService.loadMeasuringPointList(measuringPointPageQueryDTO));
     }
+
+    @PostMapping("/loadImage")
+    public ResponseVO<String> loadMeasuringPointImage(Long mpId){
+        return ResponseUtils.success(measuringPointService.loadImage(mpId));
+    }
 }

@@ -1,22 +1,23 @@
 package cn.lqz.unmannedinspectionsystem.controller;
 
 import cn.lqz.unmannedinspectionsystem.pojo.vo.ResponseVO;
-import cn.lqz.unmannedinspectionsystem.service.DetectService;
+import cn.lqz.unmannedinspectionsystem.service.WorkshopService;
 import cn.lqz.unmannedinspectionsystem.utils.ResponseUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.multipart.MultipartFile;
+
+import java.util.Map;
 
 @RestController
-@RequestMapping("/detect")
+@RequestMapping("/workshop")
 @RequiredArgsConstructor
-public class DetectController {
-    private final DetectService detectService;
+public class WorkshopController {
+    private final WorkshopService workshopService;
 
-    @PostMapping("/detect")
-    public ResponseVO<String> imageUpload(MultipartFile image){
-        return ResponseUtils.success(detectService.detect(image));
+    @PostMapping("/countDevice")
+    public ResponseVO<Map<String,Integer>> countDevice(){
+        return ResponseUtils.success(workshopService.countDevice());
     }
 }

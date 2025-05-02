@@ -24,4 +24,12 @@ public class MeasuringPointVO {
      * 测点状态
      */
     private Integer measuringPointStatus;
+    /**
+     * 车间名称
+     */
+    private String workshopName;
+    /**
+     * 测点图片Base64编码
+     */
+    private String base64Image;
 }
