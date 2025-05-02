@@ -81,6 +81,10 @@ service:
   # yolov5 模型参数配置
   yolo:
     # 入参图片文件夹
-    input-image-filepath: ${unmanned-inspection-system.service.yolo.input-image-filepath}
+    input-image-file-folder-path: ${unmanned-inspection-system.service.yolo.input-image-file-folder-path}
     # 出参图片文件夹
-    output-image-filepath: ${unmanned-inspection-system.service.yolo.output-image-filepath}
+    output-image-file-folder-path: ${unmanned-inspection-system.service.yolo.output-image-file-folder-path}
+    # pt文件文件夹
+    model-file-folder-path: ${unmanned-inspection-system.service.yolo.model-file-folder-path}
+    # 模型执行器
+    executor-path: ${unmanned-inspection-system.service.yolo.executor-path}

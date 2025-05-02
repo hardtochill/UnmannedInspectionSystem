@@ -99,7 +99,7 @@ public class WebMvcConfiguration implements WebMvcConfigurer {
      * 配置拦截器
      * @param registry
      */
-    @Override
+    /*@Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(userTokenInterceptor)
                 .addPathPatterns("/**")
@@ -107,6 +107,6 @@ public class WebMvcConfiguration implements WebMvcConfigurer {
                 //.excludePathPatterns("/account/getCheckCode")
                 //.excludePathPatterns("/account/submitCheckCode")
                 //.excludePathPatterns("/account/forgetAndChangePassword");
-    }
+    }*/
 
 }
