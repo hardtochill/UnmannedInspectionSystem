@@ -3,66 +3,18 @@
     title="指示灯状态识别"
     description="基于计算机视觉的指示灯状态识别系统，可以自动识别和判断设备上指示灯的状态。支持多种类型的指示灯，包括但不限于运行指示灯、警告指示灯、状态指示灯等。系统可以在不同光照条件下准确识别指示灯的颜色和状态。"
     feature-key="indicator-light"
+    @detect="handleDetection"
   >
     <template #result="{ result }">
-      <div class="light-result">
-        <div class="indicators-grid">
-          <div 
-            v-for="(indicator, index) in result.data.indicators" 
-            :key="index"
-            class="indicator-card"
-          >
-            <div class="indicator-header">
-              <span class="indicator-name">{{ indicator.name }}</span>
-              <div 
-                class="indicator-dot"
-                :style="{ backgroundColor: getLightColor(indicator.color) }"
-              ></div>
-            </div>
-            <div class="indicator-content">
-              <div class="info-item">
-                <span class="label">状态：</span>
-                <el-tag :type="getStatusType(indicator.status)">
-                  {{ getStatusText(indicator.status) }}
-                </el-tag>
-              </div>
-              <div class="info-item">
-                <span class="label">颜色：</span>
-                <span class="value">{{ getColorText(indicator.color) }}</span>
-              </div>
-              <div class="info-item">
-                <span class="label">亮度：</span>
-                <el-progress 
-                  :percentage="indicator.brightness * 100"
-                  :format="percentageFormat"
-                  :color="getLightColor(indicator.color)"
-                />
-              </div>
-              <div class="info-item">
-                <span class="label">置信度：</span>
-                <span class="value">{{ (indicator.confidence * 100).toFixed(1) }}%</span>
-              </div>
-            </div>
-          </div>
+      <div class="feature-result">
+        <div v-if="isLoading" class="loading-container">
+          <el-icon class="loading-icon"><Loading /></el-icon>
+          <p>正在处理图片，请稍候...</p>
         </div>
-
-        <div class="summary-section">
-          <h3>检测总结</h3>
-          <div class="summary-content">
-            <div class="summary-item">
-              <span class="label">检测到的指示灯：</span>
-              <span class="value">{{ result.data.indicators.length }} 个</span>
-            </div>
-            <div class="summary-item">
-              <span class="label">异常指示灯：</span>
-              <span class="value highlight">
-                {{ result.data.indicators.filter(i => i.status !== 'normal').length }} 个
-              </span>
-            </div>
-            <div class="summary-item">
-              <span class="label">建议：</span>
-              <span class="value">{{ result.data.suggestion || '暂无建议' }}</span>
-            </div>
+        <div v-else>
+          <div v-if="resultImage" class="result-image-container">
+            <h4>处理结果图片：</h4>
+            <img :src="resultImage" class="result-image" alt="处理结果" />
           </div>
         </div>
       </div>
@@ -71,59 +23,82 @@
 </template>
 
 <script setup lang="ts">
+import { defineEmits, ref } from 'vue';
 import BaseFeature from './BaseFeature.vue';
+import { detectApi } from '@/api';
+import { ElMessage } from 'element-plus';
+import { useUserStore } from '@/stores/user';
+import { Loading } from '@element-plus/icons-vue';
 
-// 获取指示灯颜色
-const getLightColor = (color: string) => {
-  const colorMap: Record<string, string> = {
-    red: '#F56C6C',
-    green: '#67C23A',
-    yellow: '#E6A23C',
-    blue: '#409EFF',
-    white: '#FFFFFF',
-    off: '#909399'
-  };
-  return colorMap[color] || '#909399';
-};
+const isLoading = ref(false);
+const resultImage = ref('');
 
-// 获取颜色文本
-const getColorText = (color: string) => {
-  const textMap: Record<string, string> = {
-    red: '红色',
-    green: '绿色',
-    yellow: '黄色',
-    blue: '蓝色',
-    white: '白色',
-    off: '熄灭'
-  };
-  return textMap[color] || '未知';
-};
-
-// 获取状态类型
-const getStatusType = (status: string) => {
-  const typeMap: Record<string, string> = {
-    normal: 'success',
-    warning: 'warning',
-    error: 'danger',
-    off: 'info'
-  };
-  return typeMap[status] || 'info';
-};
-
-// 获取状态文本
-const getStatusText = (status: string) => {
-  const textMap: Record<string, string> = {
-    normal: '正常',
-    warning: '警告',
-    error: '错误',
-    off: '关闭'
-  };
-  return textMap[status] || '未知';
-};
-
-// 格式化百分比
-const percentageFormat = (percentage: number) => {
-  return percentage.toFixed(0) + '%';
+const handleDetection = async (file: File) => {
+  try {
+    // console.log('收到文件对象:', file);
+    isLoading.value = true;
+    resultImage.value = '';
+    
+    // 确保文件对象有效
+    if (!file || !(file instanceof File)) {
+      // console.error('无效的文件对象:', file);
+      ElMessage.error('无效的文件对象');
+      isLoading.value = false;
+      return {
+        status: 'error',
+        message: '无效的文件对象',
+        data: {}
+      };
+    }
+    
+    
+    // 创建FormData对象来发送文件
+    const formData = new FormData();
+    
+    // 使用image作为字段名添加文件
+    formData.append('image', file, file.name);
+    
+    // 打印FormData内容（用于调试）
+    // console.log('FormData已创建，字段名为image');
+    
+    // 直接使用detectApi发送请求
+    const result = await detectApi.detect(formData);
+    
+    // console.log('检测结果:', result);
+    
+    // 处理返回的base64图像
+    if (result.code === 200 && result.data) {
+      // 确保base64字符串格式正确
+      const base64Image = result.data.startsWith('data:image') 
+        ? result.data 
+        : `data:image/jpeg;base64,${result.data}`;
+      
+      resultImage.value = base64Image;
+      
+      return {
+        status: 'success',
+        message: '检测完成',
+        data: result.data
+      };
+    } else {
+      ElMessage.error(result.info || '检测失败');
+      return {
+        status: 'error',
+        message: result.info || '检测失败',
+        data: {}
+      };
+    }
+  } catch (error) {
+    // console.error('液位检测失败:', error);
+    ElMessage.error('检测过程中发生错误: ' + (error instanceof Error ? error.message : '未知错误'));
+    return {
+      status: 'error',
+      message: '检测过程中发生错误',
+      data: {}
+    };
+  } finally {
+    isLoading.value = false;
+  }
 };
 </script>
 

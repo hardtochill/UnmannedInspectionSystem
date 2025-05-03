@@ -2,7 +2,7 @@
  * @Author: Fhx0902 YJX040124@outlook.com
  * @Date: 2025-04-18 13:49:49
  * @LastEditors: Fhx0902 YJX040124@outlook.com
- * @LastEditTime: 2025-04-29 17:59:52
+ * @LastEditTime: 2025-05-03 12:58:24
  * @FilePath: \front\src\views\StatusMonitoring.vue
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -31,16 +31,16 @@
                 <el-option label="EDI装置" value="EDI装置" />
               </el-select>
               <el-select v-model="formStatusFilter" placeholder="状态筛选" clearable>
-                <el-option label="全部" value="" />
-                <el-option label="报警" value="alarm" />
-                <el-option label="预警" value="warning" />
-                <el-option label="正常" value="normal" />
-                <el-option label="离线" value="offline" />
-                <el-option label="停机" value="shutdown" />
+                <el-option
+                  v-for="option in statusOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
               </el-select>
               <el-input
                 v-model="formSearchKeyword"
-                placeholder="搜索设备名称"
+                placeholder="搜索测点名称"
                 clearable
                 class="search-input"
               >
@@ -55,9 +55,17 @@
 
           <div class="device-grid">
             <DeviceStatusCard
-              v-for="device in filteredDevices"
+              v-for="device in deviceList"
               :key="device.id"
-              :device="device"
+              :device="{
+                name: `${device.deviceName}-${device.measuringPointName}`,
+                pointName: `${device.workshopName || device.workshop}`,
+                status: device.measuringPointStatus === 0 ? 'normal' : 'alarm',
+                statusType: device.measuringPointStatus === 0 ? 'success' : 'danger',
+                workshop: device.workshopName || device.workshop,
+                description: `${device.workshopName || device.workshop}`,
+                imageUrl: device.image || '/images/devices/default.jpg'
+              }"
             />
           </div>
 
@@ -85,51 +93,69 @@ import DeviceStatusCard from '@/components/DeviceStatusCard.vue';
 import CommonHeader from '@/components/CommonHeader.vue';
 import CommonSidebar from '@/components/CommonSidebar.vue';
 import CommonBreadcrumb from '@/components/CommonBreadcrumb.vue';
-import { getDeviceList } from '@/api/mock';
-import type { DeviceStatus } from '@/api/types';
+import { mpApi } from '@/api';
+import { ElMessage } from 'element-plus';
 
 const currentTime = ref(new Date().toLocaleString());
 const theme = ref('dark');
 const isCollapse = ref(false);
-const deviceList = ref<DeviceStatus[]>([]);
+const deviceList = ref<MeasurementPointItem[]>([]);
 const formWorkshop = ref('');
 const formDeviceType = ref('');
-const formStatusFilter = ref('');
+const formStatusFilter = ref(-1);
 const formSearchKeyword = ref('');
 const currentPage = ref(1);
 const pageSize = ref(12);
 const total = ref(0);
-const workshop = ref('');
-const deviceType = ref('');
-const statusFilter = ref('');
-const searchKeyword = ref('');
 
-// 过滤设备列表
-const filteredDevices = computed(() => {
-  let filtered = deviceList.value;
+// 修改状态选择器选项（0正常，1异常）
+const statusOptions = [
+  { label: '全部', value: -1 },
+  { label: '正常', value: 0 },
+  { label: '异常', value: 1 }
+];
 
-  if (workshop.value) {
-    filtered = filtered.filter(device => device.workshop === workshop.value);
+// 加载测点列表
+const loadMeasurementPoints = async () => {
+  try {
+    const params = {
+      pageNo: currentPage.value,
+      pageSize: pageSize.value,
+      workshop: formWorkshop.value || undefined,
+      deviceName: formDeviceType.value || undefined,
+      measuringPointStatus: formStatusFilter.value === -1 ? undefined : formStatusFilter.value,
+      measuringPointName: formSearchKeyword.value || undefined,
+      workshopName: formWorkshop.value || undefined
+    };
+
+    const res = await mpApi.loadList(params);
+    if (res.code === 200) {
+      deviceList.value = res.data.list.map(item => {
+        const base64Image = item.base64Image 
+          ? (item.base64Image.startsWith('data:image') 
+            ? item.base64Image 
+            : `data:image/jpeg;base64,${item.base64Image}`)
+          : '';
+          
+        return {
+          ...item,
+          status: item.measuringPointStatus === 0 ? 'normal' : 'alarm',
+          statusText: item.measuringPointStatus === 0 ? '正常' : '异常',
+          image: base64Image
+        };
+      });
+      console.log(deviceList.value)
+      total.value = res.data.pageTotal;
+      currentPage.value = res.data.pageNo;
+      pageSize.value = res.data.pageSize;
+    } else {
+      ElMessage.error(res.info || '获取数据失败');
+    }
+  } catch (error) {
+    console.error('获取测点列表失败:', error);
+    ElMessage.error('获取数据失败');
   }
-  if (deviceType.value) {
-    filtered = filtered.filter(device => device.type === deviceType.value);
-  }
-  if (statusFilter.value) {
-    filtered = filtered.filter(device => device.status === statusFilter.value);
-  }
-  if (searchKeyword.value) {
-    const keyword = searchKeyword.value.toLowerCase();
-    filtered = filtered.filter(device => 
-      device.name.toLowerCase().includes(keyword) ||
-      device.description?.toLowerCase().includes(keyword)
-    );
-  }
-  total.value = filtered.length;
-  // 分页
-  const start = (currentPage.value - 1) * pageSize.value;
-  const end = start + pageSize.value;
-  return filtered.slice(start, end);
-});
+};
 
 const toggleTheme = () => {
   theme.value = theme.value === 'dark' ? 'light' : 'dark';
@@ -143,31 +169,29 @@ const toggleTheme = () => {
 
 const handleSizeChange = (val: number) => {
   pageSize.value = val;
-  currentPage.value = 1;
+  loadMeasurementPoints();
 };
 
 const handleCurrentChange = (val: number) => {
   currentPage.value = val;
+  loadMeasurementPoints();
 };
 
 const handleQuery = () => {
-  workshop.value = formWorkshop.value;
-  deviceType.value = formDeviceType.value;
-  statusFilter.value = formStatusFilter.value;
-  searchKeyword.value = formSearchKeyword.value;
   currentPage.value = 1;
+  loadMeasurementPoints();
 };
 
 const handleReset = () => {
   formWorkshop.value = '';
   formDeviceType.value = '';
-  formStatusFilter.value = '';
+  formStatusFilter.value = -1;
   formSearchKeyword.value = '';
   handleQuery();
 };
 
-onMounted(async () => {
-  deviceList.value = getDeviceList();
+onMounted(() => {
+  loadMeasurementPoints();
 });
 </script>
 
@@ -223,6 +247,7 @@ onMounted(async () => {
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 24px;
   margin-bottom: 24px;
+  padding: 12px;
 }
 
 .pagination {
@@ -242,5 +267,19 @@ onMounted(async () => {
   --el-pagination-button-disabled-color: #606266;
   --el-pagination-button-disabled-bg-color: #282b30;
   --el-pagination-hover-color: var(--el-color-primary);
+}
+
+:deep(.el-card) {
+  background-color: #282b30;
+  border: none;
+  transition: transform 0.3s ease;
+}
+
+:deep(.el-card:hover) {
+  transform: translateY(-4px);
+}
+
+:deep(.el-card__body) {
+  padding: 0;
 }
 </style>

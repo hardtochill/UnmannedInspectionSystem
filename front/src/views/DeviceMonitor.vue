@@ -33,14 +33,14 @@
             <!-- 视频流显示区域 -->
             <div class="video-container" ref="videoContainer">
               <div v-if="isStreaming" class="stream-wrapper">
-                <video ref="videoPlayer" autoplay>
-                  <source :src="streamUrl" type="application/x-mpegURL">
-                  您的浏览器不支持 HTML5 视频播放。
+                <video ref="videoPlayer" controls autoplay @error="handleVideoError">
+                  <source src="/count.mp4" type="video/mp4">
+                  Your browser does not support the video tag.
                 </video>
               </div>
               <div v-else class="stream-placeholder">
                 <el-icon :size="48"><VideoCamera /></el-icon>
-                <p>点击"开始监控"按钮启动视频流</p>
+                <p>点击"开始监控"按钮启动视频播放</p>
               </div>
             </div>
           </div>
@@ -51,38 +51,34 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { FullScreen, VideoCamera } from '@element-plus/icons-vue';
 import CommonHeader from '@/components/CommonHeader.vue';
 import CommonSidebar from '@/components/CommonSidebar.vue';
 import CommonBreadcrumb from '@/components/CommonBreadcrumb.vue';
+import { ElMessage } from 'element-plus';
 import type { DeviceStatus } from '@/api/types';
-import { getDeviceList } from '@/api/mock';
 
 const route = useRoute();
 const deviceId = route.params.id as string;
-const currentTime = ref(new Date().toLocaleString());
+const currentTime = ref('');
 const theme = ref('dark');
 const isCollapse = ref(false);
 const isStreaming = ref(false);
 const videoContainer = ref<HTMLElement | null>(null);
 const videoPlayer = ref<HTMLVideoElement | null>(null);
+let timer: number | null = null;
 
 // 设备信息
 const deviceInfo = ref<DeviceStatus>({
   id: '',
   name: '',
-  status: 'normal',
+  status: 'normal' as const,
   location: '',
   lastUpdate: '',
   type: '',
   description: ''
-});
-
-// 模拟视频流地址（实际项目中应该从后端获取）
-const streamUrl = computed(() => {
-  return `http://your-streaming-server/live/${deviceId}/index.m3u8`;
 });
 
 // 状态相关
@@ -93,8 +89,8 @@ const statusText = computed(() => {
     normal: '正常',
     offline: '离线',
     shutdown: '停机'
-  };
-  return statusMap[deviceInfo.value.status];
+  } as const;
+  return statusMap[deviceInfo.value.status as keyof typeof statusMap];
 });
 
 const tagType = computed(() => {
@@ -104,8 +100,8 @@ const tagType = computed(() => {
     normal: 'success',
     offline: 'info',
     shutdown: ''
-  };
-  return typeMap[deviceInfo.value.status];
+  } as const;
+  return typeMap[deviceInfo.value.status as keyof typeof typeMap];
 });
 
 // 切换主题
@@ -133,31 +129,40 @@ const toggleStream = () => {
   isStreaming.value = !isStreaming.value;
   if (!isStreaming.value && videoPlayer.value) {
     videoPlayer.value.pause();
-    videoPlayer.value.src = '';
+  } else if (isStreaming.value && videoPlayer.value) {
+    videoPlayer.value.play().catch(error => {
+      console.error('视频播放失败:', error);
+      ElMessage.error('视频播放失败，请检查视频文件或网络连接');
+      isStreaming.value = false;
+    });
   }
 };
 
-// 定时更新时间
-let timer: number;
-onMounted(async () => {
-  // 获取设备信息
-  const devices = getDeviceList();
-  const device = devices.find(d => d.id === deviceId);
-  if (device) {
-    deviceInfo.value = device;
-  }
+// 处理视频错误
+const handleVideoError = (e: Event) => {
+  console.error('视频加载失败:', e);
+  ElMessage.error('视频加载失败，请检查视频文件或网络连接');
+  isStreaming.value = false;
+};
 
+// 初始化
+onMounted(() => {
   // 更新时间
   timer = window.setInterval(() => {
     currentTime.value = new Date().toLocaleString();
   }, 1000);
+
+  // 获取视频元素引用
+  videoPlayer.value = document.querySelector('video');
 });
 
 onUnmounted(() => {
-  clearInterval(timer);
-  if (isStreaming.value && videoPlayer.value) {
+  if (timer) {
+    clearInterval(timer);
+    timer = null;
+  }
+  if (videoPlayer.value) {
     videoPlayer.value.pause();
-    videoPlayer.value.src = '';
   }
 });
 </script>

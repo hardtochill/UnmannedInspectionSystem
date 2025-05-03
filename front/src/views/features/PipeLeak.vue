@@ -2,7 +2,7 @@
  * @Author: Fhx0902 YJX040124@outlook.com
  * @Date: 2025-04-28 15:41:30
  * @LastEditors: Fhx0902 YJX040124@outlook.com
- * @LastEditTime: 2025-04-29 17:53:37
+ * @LastEditTime: 2025-05-03 12:58:50
  * @FilePath: \front\src\views\features\PipeLeak.vue
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -11,26 +11,19 @@
     title="管道泄露检测"
     description="基于深度学习的管道泄露检测系统，可以自动识别图像中的管道泄露位置，并提供泄露程度的评估。支持多种工业场景下的管道泄露检测，包括但不限于水管、油管、气管等。"
     feature-key="pipe-leak"
+    @detect="handleDetection"
   >
     <template #result="{ result }">
-      <div class="leak-result">
-        <div class="result-item">
-          <span class="label">泄露位置：</span>
-          <span class="value">{{ result.data.location || '未检测到泄露' }}</span>
+      <div class="feature-result">
+        <div v-if="isLoading" class="loading-container">
+          <el-icon class="loading-icon"><Loading /></el-icon>
+          <p>正在处理图片，请稍候...</p>
         </div>
-        <div class="result-item">
-          <span class="label">泄露程度：</span>
-          <el-tag :type="getLeakLevelType(result.data.level)">
-            {{ getLeakLevelText(result.data.level) }}
-          </el-tag>
-        </div>
-        <div class="result-item">
-          <span class="label">置信度：</span>
-          <span class="value">{{ (result.data.confidence * 100).toFixed(2) }}%</span>
-        </div>
-        <div class="result-item">
-          <span class="label">建议：</span>
-          <span class="value">{{ result.data.suggestion || '暂无建议' }}</span>
+        <div v-else>
+          <div v-if="resultImage" class="result-image-container">
+            <h4>处理结果图片：</h4>
+            <img :src="resultImage" class="result-image" alt="处理结果" />
+          </div>
         </div>
       </div>
     </template>
@@ -38,28 +31,82 @@
 </template>
 
 <script setup lang="ts">
+import { defineEmits, ref } from 'vue';
 import BaseFeature from './BaseFeature.vue';
+import { detectApi } from '@/api';
+import { ElMessage } from 'element-plus';
+import { useUserStore } from '@/stores/user';
+import { Loading } from '@element-plus/icons-vue';
 
-// 获取泄露等级类型
-const getLeakLevelType = (level: string) => {
-  const typeMap: Record<string, string> = {
-    severe: 'danger',
-    moderate: 'warning',
-    slight: 'info',
-    none: 'success'
-  };
-  return typeMap[level] || 'info';
-};
+const isLoading = ref(false);
+const resultImage = ref('');
 
-// 获取泄露等级文本
-const getLeakLevelText = (level: string) => {
-  const textMap: Record<string, string> = {
-    severe: '严重',
-    moderate: '中等',
-    slight: '轻微',
-    none: '正常'
-  };
-  return textMap[level] || '未知';
+const handleDetection = async (file: File) => {
+  try {
+    // console.log('收到文件对象:', file);
+    isLoading.value = true;
+    resultImage.value = '';
+    
+    // 确保文件对象有效
+    if (!file || !(file instanceof File)) {
+      // console.error('无效的文件对象:', file);
+      ElMessage.error('无效的文件对象');
+      isLoading.value = false;
+      return {
+        status: 'error',
+        message: '无效的文件对象',
+        data: {}
+      };
+    }
+    
+    
+    // 创建FormData对象来发送文件
+    const formData = new FormData();
+    
+    // 使用image作为字段名添加文件
+    formData.append('image', file, file.name);
+    
+    // 打印FormData内容（用于调试）
+    // console.log('FormData已创建，字段名为image');
+    
+    // 直接使用detectApi发送请求
+    const result = await detectApi.detect(formData);
+    
+    // console.log('检测结果:', result);
+    
+    // 处理返回的base64图像
+    if (result.code === 200 && result.data) {
+      // 确保base64字符串格式正确
+      const base64Image = result.data.startsWith('data:image') 
+        ? result.data 
+        : `data:image/jpeg;base64,${result.data}`;
+      
+      resultImage.value = base64Image;
+      
+      return {
+        status: 'success',
+        message: '检测完成',
+        data: result.data
+      };
+    } else {
+      ElMessage.error(result.info || '检测失败');
+      return {
+        status: 'error',
+        message: result.info || '检测失败',
+        data: {}
+      };
+    }
+  } catch (error) {
+    // console.error('液位检测失败:', error);
+    ElMessage.error('检测过程中发生错误: ' + (error instanceof Error ? error.message : '未知错误'));
+    return {
+      status: 'error',
+      message: '检测过程中发生错误',
+      data: {}
+    };
+  } finally {
+    isLoading.value = false;
+  }
 };
 </script>
 

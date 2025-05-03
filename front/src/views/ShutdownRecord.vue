@@ -93,13 +93,14 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { VideoPlay, VideoPause } from '@element-plus/icons-vue';
 import CommonHeader from '@/components/CommonHeader.vue';
 import CommonSidebar from '@/components/CommonSidebar.vue';
 import CommonBreadcrumb from '@/components/CommonBreadcrumb.vue';
 import { ElMessage } from 'element-plus';
+import type { ShutdownRecord } from '@/types';
 
 const currentTime = ref(new Date().toLocaleString());
 const theme = ref('dark');
@@ -107,7 +108,7 @@ const isCollapse = ref(false);
 
 const deviceType = ref('');
 const status = ref('');
-const dateRange = ref([]);
+const dateRange = ref<[Date, Date] | null>(null);
 const currentPage = ref(1);
 const pageSize = ref(10);
 const total = ref(100);
@@ -118,139 +119,15 @@ const statusCount = ref({
   stopped: 8
 });
 
-const recordData = ref([
-  { 
-    name: '设备1', 
-    location: '车间A区', 
-    status: '运行中', 
-    startTime: '2024-04-19 08:00:00',
-    duration: '2小时30分钟'
-  },
-  { 
-    name: '设备2', 
-    location: '车间B区', 
-    status: '已停机', 
-    startTime: '2024-04-19 09:00:00',
-    duration: '1小时45分钟'
-  }
-]);
-
-// 模拟API调用
-const fetchShutdownData = async (params) => {
-  loading.value = true;
-  try {
-    // 模拟API调用延迟
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // 模拟数据过滤
-    let filteredData = [...mockShutdownData];
-    
-    if (params.deviceType) {
-      filteredData = filteredData.filter(item => item.type === params.deviceType);
-    }
-    
-    if (params.status) {
-      filteredData = filteredData.filter(item => item.status === params.status);
-    }
-    
-    if (params.dateRange && params.dateRange.length === 2) {
-      const startDate = new Date(params.dateRange[0]).getTime();
-      const endDate = new Date(params.dateRange[1]).getTime();
-      filteredData = filteredData.filter(item => {
-        const itemDate = new Date(item.startTime).getTime();
-        return itemDate >= startDate && itemDate <= endDate;
-      });
-    }
-    
-    // 更新总数
-    total.value = filteredData.length;
-    
-    // 分页处理
-    const start = (params.currentPage - 1) * params.pageSize;
-    const end = start + params.pageSize;
-    
-    // 计算运行和停机数量
-    const statusCount = {
-      running: filteredData.filter(item => item.status === '运行中').length,
-      stopped: filteredData.filter(item => item.status === '已停机').length
-    };
-    
-    return {
-      list: filteredData.slice(start, end),
-      total: filteredData.length,
-      statusCount
-    };
-  } catch (error) {
-    ElMessage.error('获取数据失败');
-    return {
-      list: [],
-      total: 0,
-      statusCount: { running: 0, stopped: 0 }
-    };
-  } finally {
-    loading.value = false;
-  }
-};
-
-// 模拟数据
-const mockShutdownData = [
-  { 
-    id: 1,
-    name: '设备1', 
-    type: 'type1',
-    location: '车间A区', 
-    status: '运行中', 
-    startTime: '2024-04-19 08:00:00',
-    duration: '2小时30分钟'
-  },
-  { 
-    id: 2,
-    name: '设备2', 
-    type: 'type2',
-    location: '车间B区', 
-    status: '已停机', 
-    startTime: '2024-04-19 09:00:00',
-    duration: '1小时45分钟'
-  }
-  // ... 可以添加更多模拟数据
-];
-
-// 查询方法
-const query = async () => {
-  const params = {
-    deviceType: deviceType.value,
-    status: status.value,
-    dateRange: dateRange.value,
-    currentPage: currentPage.value,
-    pageSize: pageSize.value
-  };
-  
-  const { list, total: totalCount, statusCount: counts } = await fetchShutdownData(params);
-  recordData.value = list;
-  total.value = totalCount;
-  statusCount.value = counts;
-};
-
-// 重置方法
-const reset = () => {
-  deviceType.value = '';
-  status.value = '';
-  dateRange.value = [];
-  currentPage.value = 1;
-  query();
-};
-
-const viewDetail = (row) => {
-  console.log('查看详情:', row);
-};
+const recordData = ref<ShutdownRecord[]>([]);
 
 // 分页方法
-const handleSizeChange = (val) => {
+const handleSizeChange = (val: number) => {
   pageSize.value = val;
   query();
 };
 
-const handleCurrentChange = (val) => {
+const handleCurrentChange = (val: number) => {
   currentPage.value = val;
   query();
 };

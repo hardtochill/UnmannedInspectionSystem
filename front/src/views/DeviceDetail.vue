@@ -101,7 +101,6 @@ import CommonHeader from '@/components/CommonHeader.vue';
 import CommonSidebar from '@/components/CommonSidebar.vue';
 import CommonBreadcrumb from '@/components/CommonBreadcrumb.vue';
 import type { DeviceStatus, AlarmRecord } from '@/api/types';
-import { getDeviceList } from '@/api/mock';
 
 const route = useRoute();
 const router = useRouter();
@@ -218,11 +217,7 @@ const getStatusType = (status: string) => {
 
 onMounted(async () => {
   // 获取设备信息
-  const devices = getDeviceList();
-  const device = devices.find(d => d.id === deviceId);
-  if (device) {
-    deviceInfo.value = device;
-  }
+  // 这里需要替换为实际的API调用
 
   // 模拟获取报警记录
   alarmLogs.value = [

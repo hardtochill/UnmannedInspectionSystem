@@ -1,88 +1,93 @@
 <template>
   <div class="workspace dark-theme">
-    <CommonHeader :currentTime="currentTime" :theme="theme" @toggleTheme="toggleTheme" />
+    <CommonHeader />
     <div class="main-content">
       <CommonSidebar :isCollapse="isCollapse" @open="handleOpen" @close="handleClose" />
       <div class="main">
         <CommonBreadcrumb />
         <div class="summary">
-          <div class="summary-card alarm-devices">
+          <div class="summary-card" :class="'status-' + item.type" v-for="item in statusItems" :key="item.type">
             <div class="card-icon">
-              <el-icon><Warning /></el-icon>
+              <el-icon v-if="item.type === 'normal'"><Monitor /></el-icon>
+              <el-icon v-else-if="item.type === 'warning'"><Warning /></el-icon>
+              <el-icon v-else-if="item.type === 'pending'"><Bell /></el-icon>
+              <el-icon v-else-if="item.type === 'success'"><CircleCheckFilled /></el-icon>
             </div>
             <div class="card-content">
-              <h3>报警设备</h3>
-              <div class="main-value">{{ workspaceData.alarmDevices || 10 }} 台</div>
-              <div class="sub-value">报警测点 {{ workspaceData.alarmPoints || 19 }} 个</div>
-            </div>
-          </div>
-          <div class="summary-card pending-alarms">
-            <div class="card-icon">
-              <el-icon><Bell /></el-icon>
-            </div>
-            <div class="card-content">
-              <h3>等待处置</h3>
-              <div class="main-value">{{ workspaceData.alarmDisposal?.waiting || 1149 }} 条</div>
-              <div class="sub-value">完成处置 {{ workspaceData.alarmDisposal?.completed || 18 }} 条</div>
-            </div>
-          </div>
-          <div class="summary-card monitor-devices">
-            <div class="card-icon">
-              <el-icon><Monitor /></el-icon>
-            </div>
-            <div class="card-content">
-              <h3>监测设备</h3>
-              <div class="main-value">{{ workspaceData.deviceInfo?.detected || 98 }} 台</div>
-              <div class="sub-value">关注设备 {{ workspaceData.deviceInfo?.followed || 4 }} 台</div>
-            </div>
-          </div>
-          <div class="summary-card device-status">
-            <div class="card-icon">
-              <el-icon><Tools /></el-icon>
-            </div>
-            <div class="card-content">
-              <h3>停机设备</h3>
-              <div class="main-value">{{ workspaceData.operatingStatus?.stopped || 34 }} 台</div>
-              <div class="sub-value">断网设备 {{ workspaceData.operatingStatus?.offline || 18 }} 台</div>
+              <h3>{{ item.label }}</h3>
+              <div class="main-value">{{ item.count }} 台</div>
             </div>
           </div>
         </div>
 
         <div class="content-section">
           <div class="section-header">
-            <h3>异常数据监控</h3>
-            <div class="time-filter">
-              <el-radio-group v-model="timeRange" size="small">
-                <el-radio-button label="today">今日</el-radio-button>
-                <el-radio-button label="yesterday">昨日</el-radio-button>
-                <el-radio-button label="week">近7天</el-radio-button>
-              </el-radio-group>
+            <h3>设备状态</h3>
+            <div class="filter-section">
+              <el-select v-model="statusFilter" placeholder="检测状态" class="filter-item">
+                <el-option label="全部" value="" />
+                <el-option label="正常" :value="1" />
+                <el-option label="异常" :value="0" />
+              </el-select>
+              <div class="filter-buttons">
+                <el-button type="primary" @click="handleSearch">查询</el-button>
+                <el-button @click="handleReset">重置</el-button>
+              </div>
             </div>
           </div>
           
           <el-table 
-            :data="workspaceData.pendingAlarms" 
+            :data="deviceStatusData" 
             style="width: 100%"
             class="custom-table"
+            v-loading="loading"
           >
-            <el-table-column type="index" label="序号" width="70"></el-table-column>
-            <el-table-column prop="deviceName" label="设备名称"></el-table-column>
-            <el-table-column prop="location" label="测点名称"></el-table-column>
-            <el-table-column prop="status" label="检测状态">
+            <el-table-column type="index" label="序号" width="70" />
+            <el-table-column prop="deviceName" label="设备名称" />
+            <el-table-column prop="measuringPointName" label="测点名称" />
+            <el-table-column prop="measuringPointStatus" label="检测状态">
               <template #default="{ row }">
-                <el-tag :type="row.status === '异常' ? 'danger' : 'success'">
-                  {{ row.status }}
+                <el-tag :type="row.measuringPointStatus === 0 ? 'danger' : 'success'">
+                  {{ row.measuringPointStatus === 0 ? '异常' : '正常' }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="time" label="时间"></el-table-column>
-            <el-table-column label="操作" width="100">
+            <el-table-column prop="workshopName" label="车间">
               <template #default="{ row }">
-                <el-button type="primary" link @click="handleDispose(row.id)">处置</el-button>
+                {{ row.workshopName || '-' }}
               </template>
             </el-table-column>
+            <el-table-column prop="description" label="描述" show-overflow-tooltip />
           </el-table>
+          <div class="pagination-container">
+            <span class="total-text">Total {{ total }}</span>
+            <div class="page-control">
+              <el-select v-model="pageSize" class="page-size-select">
+                <el-option
+                  :value="12"
+                  label="12/page"
+                />
+              </el-select>
+              <div class="page-buttons">
+                <el-button
+                  :disabled="currentPage <= 1"
+                  @click="currentPage--"
+                >
+                  <el-icon><ArrowLeft /></el-icon>
+                </el-button>
+                <span class="current-page">{{ currentPage }}</span>
+                <el-button
+                  :disabled="currentPage >= Math.ceil(total / pageSize)"
+                  @click="currentPage++"
+                >
+                  <el-icon><ArrowRight /></el-icon>
+                </el-button>
+              </div>
+            </div>
+          </div>
         </div>
+
+        
 
         <div class="chart-section">
           <div class="section-header">
@@ -145,13 +150,57 @@
         </div>
       </div>
     </el-dialog>
+
+    <!-- 报警详情弹窗 -->
+    <el-dialog
+      v-model="alarmDetailVisible"
+      :title="alarmDetailTitle"
+      width="800px"
+      destroy-on-close
+    >
+      <div v-loading="detailLoading">
+        <div class="detail-summary">
+          <div class="detail-item">
+            <span class="label">月份：</span>
+            <span class="value">{{ alarmDetailData.month }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="label">报警数量：</span>
+            <span class="value highlight">{{ alarmDetailData.count }} 条</span>
+          </div>
+        </div>
+
+        <el-divider>报警详情</el-divider>
+
+        <el-table
+          :data="alarmDetailData.details"
+          style="width: 100%"
+          class="custom-table"
+          v-if="alarmDetailData.details?.length"
+        >
+          <el-table-column type="index" label="序号" width="70" />
+          <el-table-column prop="date" label="日期" />
+          <el-table-column prop="type" label="报警类型" />
+          <el-table-column prop="status" label="处理状态">
+            <template #default="{ row }">
+              <el-tag :type="getStatusType(row.status)">
+                {{ row.status }}
+              </el-tag>
+            </template>
+          </el-table-column>
+        </el-table>
+
+        <div v-else class="no-data">
+          暂无报警详情数据
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, watch } from 'vue';
-import { Warning, Bell, Monitor, Tools } from '@element-plus/icons-vue';
-import { getWorkspaceData } from '@/api/mock';
+import { ref, onMounted, watch, onBeforeUnmount, computed } from 'vue';
+import { Warning, Bell, Monitor, CircleCheckFilled, ArrowLeft, ArrowRight } from '@element-plus/icons-vue';
 import ReusableChart from '@/components/ReusableChart.vue';
 import CommonHeader from '@/components/CommonHeader.vue';
 import CommonSidebar from '@/components/CommonSidebar.vue';
@@ -159,6 +208,8 @@ import CommonBreadcrumb from '@/components/CommonBreadcrumb.vue';
 import * as echarts from 'echarts';
 import { ElMessage } from 'element-plus';
 import { useRouter } from 'vue-router';
+import { alarmApi, mpApi, deviceApi } from '@/api';
+import { useUserStore } from '@/stores/user';
 
 const isCollapse = ref(false);
 const currentTime = ref(new Date().toLocaleString());
@@ -173,6 +224,52 @@ const chartDetailVisible = ref(false);
 const chartDetailTitle = ref('');
 const chartDetail = ref({});
 const detailLoading = ref(false);
+
+// 筛选相关的响应式变量
+const workshopFilter = ref('');
+const deviceTypeFilter = ref('');
+const statusFilter = ref('');
+const searchKeyword = ref('');
+
+// 定时器
+let overviewTimer = null;
+let alarmTimer = null;
+let deviceStatusTimer = null;
+const REFRESH_INTERVAL = 30000; // 30秒刷新一次
+
+// 分页相关
+const currentPage = ref(1);
+const pageSize = ref(10);
+const total = ref(0);
+
+// 设备状态数据
+const deviceStatusData = ref([]);
+
+// 状态概览数据
+const statusItems = ref([
+  { type: 'normal', label: '运行中', count: 0 },
+  { type: 'warning', label: '报警', count: 0 },
+  { type: 'pending', label: '未处理', count: 0 },
+  { type: 'success', label: '已处理', count: 0 }
+]);
+
+// 添加弹窗相关的响应式变量
+const alarmDetailVisible = ref(false);
+const alarmDetailTitle = ref('');
+const alarmDetailData = ref({
+  month: '',
+  count: 0,
+  details: []
+});
+
+// 用户信息
+const userStore = useUserStore();
+const userInfo = computed(() => {
+  return {
+    name: userStore.currentUser?.name || '未登录',
+    role: userStore.currentUser?.roleType || 0
+  };
+});
 
 const handleOpen = (key, keyPath) => {
   console.log(key, keyPath);
@@ -225,94 +322,6 @@ const chartData = ref({
   }
 });
 
-const pieChartData = ref({
-  options: {
-    title: {
-      text: '设备状态分布',
-      left: 'center',
-      top: 10
-    },
-    tooltip: {
-      trigger: 'item'
-    },
-    legend: {
-      orient: 'vertical',
-      right: '5%',
-      top: 'center',
-      itemWidth: 10,
-      itemHeight: 10
-    },
-    series: [
-      {
-        type: 'pie',
-        radius: ['40%', '70%'],
-        center: ['40%', '50%'],
-        avoidLabelOverlap: false,
-        itemStyle: {
-          borderRadius: 4,
-          borderWidth: 2
-        },
-        label: {
-          show: false
-        },
-        emphasis: {
-          label: {
-            show: true,
-            fontSize: 14,
-            fontWeight: 'bold'
-          }
-        },
-        data: [
-          { value: 1048, name: '正常', itemStyle: { color: '#52c41a' } },
-          { value: 735, name: '告警', itemStyle: { color: '#faad14' } },
-          { value: 580, name: '故障', itemStyle: { color: '#ff4d4f' } },
-          { value: 484, name: '离线', itemStyle: { color: '#8c8c8c' } }
-        ]
-      }
-    ]
-  }
-});
-
-const barChartData = ref({
-  options: {
-    title: {
-      text: '设备类型分布',
-      left: 'center',
-      top: 10
-    },
-    tooltip: {
-      trigger: 'axis'
-    },
-    grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '3%',
-      top: '15%',
-      containLabel: true
-    },
-    xAxis: {
-      type: 'category',
-      data: ['类型A', '类型B', '类型C', '类型D', '类型E', '类型F']
-    },
-    yAxis: {
-      type: 'value'
-    },
-    series: [
-      {
-        data: [120, 200, 150, 80, 70, 110],
-        type: 'bar',
-        barWidth: '40%',
-        itemStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: '#1890ff' },
-            { offset: 1, color: '#1677ff' }
-          ]),
-          borderRadius: [4, 4, 0, 0]
-        }
-      }
-    ]
-  }
-});
 
 const toggleTheme = () => {
   document.body.classList.toggle('dark-theme', theme.value === 'dark');
@@ -322,223 +331,239 @@ const handleDispose = (id) => {
   router.push(`/alarm-process/${id}`);
 };
 
-// 获取报警等级对应的类型
-const getAlarmLevelType = (level) => {
-  const types = {
-    '一级': 'danger',
-    '二级': 'warning',
-    '三级': 'info'
-  };
-  return types[level] || 'info';
-};
-
-// 获取状态对应的类型
-const getStatusType = (status) => {
-  const types = {
-    '待处理': 'danger',
-    '处理中': 'warning',
-    '已处理': 'success'
-  };
-  return types[status] || 'info';
-};
-
-// 模拟获取图表点击节点的详细数据
-const fetchChartNodeDetail = async (time, value) => {
-  detailLoading.value = true;
+// 获取报警数据
+const fetchAlarmData = async () => {
   try {
-    // 模拟API调用延迟
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // 模拟数据
-    const alarms = [];
-    const alarmTypes = ['温度异常', '压力异常', '振动异常', '速度异常', '位置偏差'];
-    const alarmLevels = ['一级', '二级', '三级'];
-    const statusList = ['待处理', '处理中', '已处理'];
-    
-    // 生成随机报警数据
-    for (let i = 0; i < value; i++) {
-      alarms.push({
-        deviceName: `设备${Math.floor(Math.random() * 10) + 1}`,
-        alarmType: alarmTypes[Math.floor(Math.random() * alarmTypes.length)],
-        level: alarmLevels[Math.floor(Math.random() * alarmLevels.length)],
-        time: new Date(time).toLocaleString('zh-CN'),
-        status: statusList[Math.floor(Math.random() * statusList.length)]
-      });
+    const res = await alarmApi.countAlarmTimeByMonth();
+    if (res.code === 200) {
+      const data = res.data;
+      // 更新图表数据
+      chartData.value = {
+        xAxisData: Object.keys(data),
+        yAxisData: Object.values(data),
+        options: {
+          title: {
+            text: '报警趋势分析',
+            left: 'center',
+            top: 10,
+            textStyle: {
+              color: '#fff'
+            }
+          },
+          tooltip: {
+            trigger: 'axis',
+            axisPointer: {
+              type: 'shadow'
+            }
+          },
+          xAxis: {
+            type: 'category',
+            data: Object.keys(data),
+            axisLine: {
+              lineStyle: { color: '#8c8c8c' }
+            },
+            axisLabel: {
+              color: '#8c8c8c',
+              interval: 0,
+              rotate: 30
+            }
+          },
+          yAxis: {
+            type: 'value',
+            name: '报警数量',
+            nameTextStyle: {
+              color: '#8c8c8c'
+            },
+            axisLine: {
+              lineStyle: { color: '#8c8c8c' }
+            },
+            splitLine: {
+              lineStyle: { color: 'rgba(140, 140, 140, 0.2)' }
+            },
+            axisLabel: {
+              color: '#8c8c8c'
+            }
+          },
+          series: [{
+            data: Object.values(data),
+            type: 'line',
+            smooth: true,
+            symbolSize: 8,
+            lineStyle: {
+              width: 3,
+              color: '#0b82c6'
+            },
+            itemStyle: {
+              color: '#0b82c6',
+              borderWidth: 2,
+              borderColor: '#fff'
+            },
+            areaStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: 'rgba(11, 130, 198, 0.3)' },
+                { offset: 1, color: 'rgba(11, 130, 198, 0.05)' }
+              ])
+            }
+          }]
+        }
+      };
     }
-    
-    return {
-      time,
-      value,
-      alarms: alarms.slice(0, 10) // 只显示前10条数据
-    };
   } catch (error) {
-    ElMessage.error('获取详细数据失败');
-    return {
-      time,
-      value,
-      alarms: []
-    };
-  } finally {
-    detailLoading.value = false;
+    console.error('获取报警趋势数据失败:', error);
+    ElMessage.error('获取报警趋势数据失败');
   }
 };
-
-// 模拟API调用
-const fetchWorkspaceData = async (timeRange) => {
-  loading.value = true;
+// 获取设备状态数据
+const fetchDeviceStatusData = async () => {
   try {
-    // 模拟API调用延迟
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // 根据时间范围生成不同的数据
-    const now = new Date();
-    let data;
-    
-    switch (timeRange) {
-      case 'today':
-        data = generateHourlyData(now, 24);
-        break;
-      case 'yesterday':
-        const yesterday = new Date(now);
-        yesterday.setDate(yesterday.getDate() - 1);
-        data = generateHourlyData(yesterday, 24);
-        break;
-      case 'week':
-        data = generateDailyData(now, 7);
-        break;
-      default:
-        data = generateHourlyData(now, 24);
-    }
-    
-    return {
-      alarmDevices: Math.floor(Math.random() * 20) + 5,
-      alarmPoints: Math.floor(Math.random() * 30) + 10,
-      alarmDisposal: {
-        waiting: Math.floor(Math.random() * 2000) + 1000,
-        completed: Math.floor(Math.random() * 50) + 10
-      },
-      deviceInfo: {
-        detected: Math.floor(Math.random() * 50) + 80,
-        followed: Math.floor(Math.random() * 10) + 1
-      },
-      operatingStatus: {
-        stopped: Math.floor(Math.random() * 40) + 20,
-        offline: Math.floor(Math.random() * 20) + 10
-      },
-      pendingAlarms: generatePendingAlarms(),
-      chartData: data
-    };
-  } catch (error) {
-    ElMessage.error('获取数据失败');
-    return {
-      alarmDevices: 0,
-      alarmPoints: 0,
-      alarmDisposal: { waiting: 0, completed: 0 },
-      deviceInfo: { detected: 0, followed: 0 },
-      operatingStatus: { stopped: 0, offline: 0 },
-      pendingAlarms: [],
-      chartData: { xAxis: [], series: [] }
-    };
-  } finally {
-    loading.value = false;
-  }
-};
-
-// 生成小时数据
-const generateHourlyData = (startDate, hours) => {
-  const data = [];
-  const xAxis = [];
-  
-  for (let i = 0; i < hours; i++) {
-    const date = new Date(startDate);
-    date.setHours(date.getHours() - (hours - 1 - i));
-    xAxis.push(date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }));
-    data.push(Math.floor(Math.random() * 50) + 10);
-  }
-  
-  return { xAxis, series: data };
-};
-
-// 生成每日数据
-const generateDailyData = (startDate, days) => {
-  const data = [];
-  const xAxis = [];
-  
-  for (let i = 0; i < days; i++) {
-    const date = new Date(startDate);
-    date.setDate(date.getDate() - (days - 1 - i));
-    xAxis.push(date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }));
-    data.push(Math.floor(Math.random() * 100) + 20);
-  }
-  
-  return { xAxis, series: data };
-};
-
-// 生成待处理报警数据
-const generatePendingAlarms = () => {
-  const alarms = [];
-  const locations = ['Z轴动力定位效果', 'X轴位移传感器', 'Y轴速度反馈', '主轴温度', '液压压力'];
-  
-  for (let i = 1; i <= 5; i++) {
-    alarms.push({
-      id: i,
-      deviceName: `模块${i}设备`,
-      location: locations[i - 1],
-      status: Math.random() > 0.3 ? '异常' : '正常',
-      time: new Date().toLocaleString('zh-CN')
+    const res = await mpApi.loadList({
+      pageNo: currentPage.value,
+      pageSize: pageSize.value,
+      measuringPointStatus: statusFilter.value || undefined
     });
-  }
-  
-  return alarms;
-};
 
-// 更新图表数据
-const updateChartData = (data) => {
-  chartData.value = {
-    ...chartData.value,
-    xAxisData: data.xAxis,
-    yAxisData: data.series,
-    options: {
-      ...chartData.value.options,
-      xAxis: {
-        ...chartData.value.options.xAxis,
-        data: data.xAxis
-      },
-      series: [{
-        ...chartData.value.options.series[0],
-        data: data.series
-      }]
+    if (res.code === 200) {
+      deviceStatusData.value = res.data.list;
+      total.value = res.data.pageTotal;
+    } else {
+      ElMessage.error(res.info || '获取设备状态数据失败');
     }
-  };
-};
-
-// 处理时间范围变化
-const handleTimeRangeChange = async () => {
-  const data = await fetchWorkspaceData(timeRange.value);
-  workspaceData.value = data;
-  updateChartData(data.chartData);
-};
-
-// 处理图表点击
-const handleChartClick = async (params) => {
-  if (params.componentType === 'series') {
-    chartDetailTitle.value = '报警详情';
-    chartDetailVisible.value = true;
-    
-    // 获取详细数据
-    const detail = await fetchChartNodeDetail(params.name, params.value);
-    chartDetail.value = detail;
+  } catch (error) {
+    console.error('获取设备状态数据失败:', error);
+    ElMessage.error('获取设备状态数据失败');
   }
 };
 
-// 监听时间范围变化
-watch(timeRange, () => {
-  handleTimeRangeChange();
+// 获取状态统计数据
+const fetchStatusData = async () => {
+  try {
+    // 获取报警处理状态统计
+    const alarmRes = await alarmApi.getStatusCount();
+    if (alarmRes.code === 200) {
+      const { processedCount, unprocessedCount } = alarmRes.data;
+      
+      // 更新已处理和未处理的数据
+      statusItems.value[2].count = unprocessedCount;
+      statusItems.value[3].count = processedCount;
+    }
+
+    // 获取设备状态统计
+    const deviceRes = await  deviceApi.countStatus();
+    if (deviceRes.code === 200) {
+      const { runningCount, alarmCount } = deviceRes.data;
+      
+      // 更新运行中和报警的数据
+      statusItems.value[0].count = runningCount;
+      statusItems.value[1].count = alarmCount;
+    }
+  } catch (error) {
+    console.error('获取状态统计数据失败:', error);
+    ElMessage.error('获取状态统计数据失败');
+  }
+};
+
+// 组件挂载时获取数据并开始定时刷新
+onMounted(() => {
+  fetchStatusData();
+  fetchAlarmData();
+  fetchDeviceStatusData();
+  startAutoRefresh();
+
 });
 
-onMounted(async () => {
-  await handleTimeRangeChange();
+// 开始定时刷新
+const startAutoRefresh = () => {
+  // 清除可能存在的旧定时器
+  stopAutoRefresh();
+
+  // 设置新的定时器
+  overviewTimer = window.setInterval(() => {
+    fetchStatusData();
+    fetchDeviceStatusData();
+    fetchAlarmData();  // 添加报警趋势数据的定时刷新
+  }, REFRESH_INTERVAL);
+};
+
+// 停止定时刷新
+const stopAutoRefresh = () => {
+  if (overviewTimer) {
+    clearInterval(overviewTimer);
+    overviewTimer = null;
+  }
+};
+
+// 组件卸载时清理定时器
+onBeforeUnmount(() => {
+  stopAutoRefresh();
 });
+
+// 查询方法
+const handleSearch = () => {
+  currentPage.value = 1;  // 重置页码
+  fetchDeviceStatusData();
+};
+
+// 重置方法
+const handleReset = () => {
+  statusFilter.value = '';
+  currentPage.value = 1;
+  fetchDeviceStatusData();
+};
+
+// 监听分页和状态筛选变化
+watch([currentPage, pageSize, statusFilter], () => {
+  fetchDeviceStatusData();
+});
+
+// 每页条数变化
+const handleSizeChange = (val) => {
+  pageSize.value = val;
+  currentPage.value = 1;
+  fetchDeviceStatusData();
+};
+
+// 跳转到登录页面
+const goToLogin = () => {
+  router.push('/login');
+};
+
+// 处理下拉菜单命令
+const handleCommand = async (command) => {
+  switch (command) {
+    case 'profile':
+      router.push('/profile');
+      break;
+    case 'logout':
+      try {
+        await ElMessageBox.confirm(
+          '确定要退出登录吗？',
+          '提示',
+          {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }
+        );
+        
+        // 清除用户状态
+        userStore.clearUser();
+        // 清除localStorage中的持久化数据
+        localStorage.removeItem('user');
+        
+        // 跳转到登录页
+        router.push('/login');
+        
+        ElMessage.success('已退出登录');
+      } catch (error) {
+        if (error !== 'cancel') {
+          console.error('退出登录错误:', error);
+          ElMessage.error('退出失败，请重试');
+        }
+      }
+      break;
+  }
+};
+
 </script>
 
 <style scoped>
@@ -546,6 +571,10 @@ onMounted(async () => {
   min-height: 100vh;
   background-color: #1a1c1e;
   color: #fff;
+}
+
+.filter-item {
+  width: 180px;
 }
 
 .main-content {
@@ -574,6 +603,24 @@ onMounted(async () => {
   align-items: center;
   gap: 16px;
   transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.summary-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(45deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0));
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.summary-card:hover::before {
+  opacity: 1;
 }
 
 .summary-card:hover {
@@ -584,7 +631,7 @@ onMounted(async () => {
 .card-icon {
   width: 48px;
   height: 48px;
-  border-radius: 8px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -592,24 +639,24 @@ onMounted(async () => {
   transition: all 0.3s ease;
 }
 
-.alarm-devices .card-icon {
-  background-color: rgba(255, 77, 79, 0.1);
-  color: #ff4d4f;
+.status-normal .card-icon {
+  background-color: rgba(82, 196, 26, 0.1);
+  color: #52c41a;
 }
 
-.pending-alarms .card-icon {
+.status-warning .card-icon {
   background-color: rgba(250, 173, 20, 0.1);
   color: #faad14;
 }
 
-.monitor-devices .card-icon {
-  background-color: rgba(24, 144, 255, 0.1);
-  color: #1890ff;
+.status-pending .card-icon {
+  background-color: rgba(255, 77, 79, 0.1);
+  color: #ff4d4f;
 }
 
-.device-status .card-icon {
-  background-color: rgba(47, 84, 235, 0.1);
-  color: #2f54eb;
+.status-success .card-icon {
+  background-color: rgba(64, 158, 255, 0.1);
+  color: #409eff;
 }
 
 .card-content {
@@ -617,17 +664,50 @@ onMounted(async () => {
 }
 
 .card-content h3 {
-  color: #8c8c8c;
+  color: rgba(255, 255, 255, 0.65);
   font-size: 14px;
   margin: 0 0 8px 0;
   font-weight: normal;
+  letter-spacing: 0.5px;
 }
 
 .main-value {
-  font-size: 24px;
-  font-weight: bold;
-  color: #fff;
+  font-size: 28px;
+  font-weight: 600;
   margin-bottom: 4px;
+  background: linear-gradient(45deg, #fff, rgba(255, 255, 255, 0.8));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.status-normal .main-value {
+  background: linear-gradient(45deg, #52c41a, #95de64);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.status-warning .main-value {
+  background: linear-gradient(45deg, #faad14, #ffd666);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.status-pending .main-value {
+  background: linear-gradient(45deg, #ff4d4f, #ff7875);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.status-success .main-value {
+  background: linear-gradient(45deg, #409eff, #69b1ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .sub-value {
@@ -740,5 +820,123 @@ onMounted(async () => {
 
 :deep(.el-table--enable-row-hover .el-table__body tr:hover > td) {
   background-color: #1a1c1e !important;
+}
+
+.filter-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.filter-section {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.section-header {
+  margin-bottom: 20px;
+}
+
+.section-header h3 {
+  margin-bottom: 16px;
+}
+
+.pagination-container {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-top: 20px;
+  padding: 0 20px;
+  gap: 16px;
+}
+
+.total-text {
+  color: #fff;
+  font-size: 14px;
+}
+
+.page-control {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.page-size-select {
+  width: 110px;
+}
+
+.page-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.current-page {
+  color: #409EFF;
+  font-size: 14px;
+  min-width: 24px;
+  text-align: center;
+}
+
+:deep(.el-select .el-input__wrapper) {
+  background-color: transparent;
+  box-shadow: 0 0 0 1px #606266;
+}
+
+:deep(.el-select .el-input__wrapper:hover) {
+  box-shadow: 0 0 0 1px #409EFF;
+}
+
+:deep(.el-select .el-input__inner) {
+  color: #fff;
+}
+
+:deep(.el-select-dropdown) {
+  background-color: #282b30;
+  border: 1px solid #303030;
+}
+
+:deep(.el-select-dropdown__item) {
+  color: #fff;
+}
+
+:deep(.el-select-dropdown__item.hover),
+:deep(.el-select-dropdown__item:hover) {
+  background-color: rgba(64, 158, 255, 0.1);
+}
+
+:deep(.el-select-dropdown__item.selected) {
+  background-color: #409EFF;
+  color: #fff;
+}
+
+:deep(.el-button) {
+  border-radius: 4px;
+  padding: 8px 20px;
+  font-size: 14px;
+  border: 1px solid transparent;
+}
+
+:deep(.el-button--primary) {
+  background-color: #409EFF;
+  border-color: #409EFF;
+  color: #fff;
+}
+
+:deep(.el-button--primary:hover) {
+  background-color: #66b1ff;
+  border-color: #66b1ff;
+}
+
+:deep(.el-button--default) {
+  background-color: transparent;
+  border-color: #606266;
+  color: #606266;
+}
+
+:deep(.el-button--default:hover) {
+  color: #409EFF;
+  border-color: #409EFF;
+  background-color: rgba(64, 158, 255, 0.1);
 }
 </style>

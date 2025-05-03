@@ -3,35 +3,19 @@
     title="液面检测"
     description="基于计算机视觉的液面检测系统，可以准确识别容器中的液面高度，支持多种类型的容器和液体。系统可以实时监测液位变化，并提供精确的液位数据。"
     feature-key="liquid-level"
+    @detect="handleDetection"
   >
     <template #result="{ result }">
-      <div class="level-result">
-        <div class="result-item">
-          <span class="label">液面高度：</span>
-          <span class="value">{{ result.data.level }}%</span>
-          <el-progress 
-            :percentage="result.data.level" 
-            :color="getLevelColor(result.data.level)"
-            :status="getLevelStatus(result.data.level)"
-          />
+      <div class="feature-result">
+        <div v-if="isLoading" class="loading-container">
+          <el-icon class="loading-icon"><Loading /></el-icon>
+          <p>正在处理图片，请稍候...</p>
         </div>
-        <div class="result-item">
-          <span class="label">容器类型：</span>
-          <span class="value">{{ result.data.containerType || '未识别' }}</span>
-        </div>
-        <div class="result-item">
-          <span class="label">液体类型：</span>
-          <span class="value">{{ result.data.liquidType || '未识别' }}</span>
-        </div>
-        <div class="result-item">
-          <span class="label">置信度：</span>
-          <span class="value">{{ (result.data.confidence * 100).toFixed(2) }}%</span>
-        </div>
-        <div class="result-item">
-          <span class="label">状态：</span>
-          <el-tag :type="getStatusType(result.data.status)">
-            {{ getStatusText(result.data.status) }}
-          </el-tag>
+        <div v-else>
+          <div v-if="resultImage" class="result-image-container">
+            <h4>处理结果图片：</h4>
+            <img :src="resultImage" class="result-image" alt="处理结果" />
+          </div>
         </div>
       </div>
     </template>
@@ -39,43 +23,82 @@
 </template>
 
 <script setup lang="ts">
+import { defineEmits, ref } from 'vue';
 import BaseFeature from './BaseFeature.vue';
+import { detectApi } from '@/api';
+import { ElMessage } from 'element-plus';
+import { useUserStore } from '@/stores/user';
+import { Loading } from '@element-plus/icons-vue';
 
-// 获取液位颜色
-const getLevelColor = (level: number) => {
-  if (level >= 90) return '#F56C6C';
-  if (level >= 70) return '#E6A23C';
-  if (level >= 30) return '#67C23A';
-  return '#909399';
-};
+const isLoading = ref(false);
+const resultImage = ref('');
 
-// 获取液位状态
-const getLevelStatus = (level: number) => {
-  if (level >= 90) return 'exception';
-  if (level >= 70) return 'warning';
-  return 'success';
-};
-
-// 获取状态类型
-const getStatusType = (status: string) => {
-  const typeMap: Record<string, string> = {
-    normal: 'success',
-    warning: 'warning',
-    alarm: 'danger',
-    unknown: 'info'
-  };
-  return typeMap[status] || 'info';
-};
-
-// 获取状态文本
-const getStatusText = (status: string) => {
-  const textMap: Record<string, string> = {
-    normal: '正常',
-    warning: '警告',
-    alarm: '报警',
-    unknown: '未知'
-  };
-  return textMap[status] || '未知';
+const handleDetection = async (file: File) => {
+  try {
+    // console.log('收到文件对象:', file);
+    isLoading.value = true;
+    resultImage.value = '';
+    
+    // 确保文件对象有效
+    if (!file || !(file instanceof File)) {
+      // console.error('无效的文件对象:', file);
+      ElMessage.error('无效的文件对象');
+      isLoading.value = false;
+      return {
+        status: 'error',
+        message: '无效的文件对象',
+        data: {}
+      };
+    }
+    
+    
+    // 创建FormData对象来发送文件
+    const formData = new FormData();
+    
+    // 使用image作为字段名添加文件
+    formData.append('image', file, file.name);
+    
+    // 打印FormData内容（用于调试）
+    // console.log('FormData已创建，字段名为image');
+    
+    // 直接使用detectApi发送请求
+    const result = await detectApi.detect(formData);
+    
+    // console.log('检测结果:', result);
+    
+    // 处理返回的base64图像
+    if (result.code === 200 && result.data) {
+      // 确保base64字符串格式正确
+      const base64Image = result.data.startsWith('data:image') 
+        ? result.data 
+        : `data:image/jpeg;base64,${result.data}`;
+      
+      resultImage.value = base64Image;
+      
+      return {
+        status: 'success',
+        message: '检测完成',
+        data: result.data
+      };
+    } else {
+      ElMessage.error(result.info || '检测失败');
+      return {
+        status: 'error',
+        message: result.info || '检测失败',
+        data: {}
+      };
+    }
+  } catch (error) {
+    // console.error('液位检测失败:', error);
+    ElMessage.error('检测过程中发生错误: ' + (error instanceof Error ? error.message : '未知错误'));
+    return {
+      status: 'error',
+      message: '检测过程中发生错误',
+      data: {}
+    };
+  } finally {
+    isLoading.value = false;
+  }
 };
 </script>
 

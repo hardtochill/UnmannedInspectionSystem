@@ -4,8 +4,10 @@ import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { User, Lock, Message } from '@element-plus/icons-vue';
 import { accountApi } from '@/api';
+import { useUserStore } from '@/stores/user';
 
 const router = useRouter();
+const userStore = useUserStore();
 const isLogin = ref(true);
 const form = reactive({
   username: '',
@@ -27,29 +29,9 @@ const handleSubmit = async () => {
       console.log('登录响应数据:', res);
 
       if (res.code === 200 && res.data) {
-        // 1. 先清除旧数据
-        localStorage.clear();
+        // 使用 Pinia store 存储用户信息
+        userStore.setUser(res.data);
         
-        // 2. 存储新的用户信息
-        const userData = res.data;
-        localStorage.setItem('currentUser', JSON.stringify(userData));
-        
-        // 3. 验证数据是否正确存储
-        const storedData = localStorage.getItem('currentUser');
-        const parsedData = JSON.parse(storedData || '{}');
-        
-        console.log('存储验证:', {
-          stored: !!storedData,
-          hasToken: !!parsedData.token,
-          token: parsedData.token,
-          userData: parsedData
-        });
-
-        if (!parsedData.token) {
-          throw new Error('用户信息存储失败');
-        }
-
-        // 4. 存储成功后跳转
         router.push('/');
         ElMessage.success('登录成功');
       } else {
@@ -58,8 +40,8 @@ const handleSubmit = async () => {
     } catch (error) {
       console.error('登录错误详情:', error);
       ElMessage.error(error.message || '登录失败，请重试');
-      // 发生错误时清除可能的部分数据
-      localStorage.clear();
+      // 清除用户状态
+      userStore.clearUser();
     }
   } else {
     // 注册逻辑 - 如果后端没有注册接口，可以隐藏注册功能
@@ -103,34 +85,28 @@ const fillDemoAccount = () => {
   form.password = '123456';
 };
 
-// 添加登出方法
+// 登出方法
 const handleLogout = async () => {
   try {
     loading.value = true;
-    const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    const userId = userStore.currentUser?.userId;
     
-    if (currentUser.userId) {
-      console.log('准备登出用户:', currentUser);
-      
-      await accountApi.logout(currentUser.userId);
-      
-      // 完全清理本地存储
-      localStorage.clear();
-      
-      ElMessage.success('退出登录成功');
-    } else {
-      console.warn('未找到用户信息，直接清理存储');
-      localStorage.clear();
+    if (userId) {
+      console.log('准备登出用户:', userId);
+      await accountApi.logout(userId);
     }
     
-    // 确保在清理存储后再跳转
+    // 清除用户状态
+    userStore.clearUser();
+    
+    ElMessage.success('退出登录成功');
     router.push('/login');
   } catch (error) {
     console.error('登出错误:', error);
     ElMessage.error('退出失败，请重试');
     
-    // 即使失败也清理存储
-    localStorage.clear();
+    // 即使失败也清除状态
+    userStore.clearUser();
     router.push('/login');
   } finally {
     loading.value = false;
@@ -197,12 +173,12 @@ const handleLogout = async () => {
         </el-button>
 
         <div class="form-footer">
-          <span @click="toggleMode">
+          <!-- <span @click="toggleMode">
             {{ isLogin ? '没有账号？点击注册' : '已有账号？点击登录' }}
-          </span>
-          <span v-if="isLogin" class="demo-account" @click="fillDemoAccount">
+          </span> -->
+          <!-- <span v-if="isLogin" class="demo-account" @click="fillDemoAccount">
             使用演示账号
-          </span>
+          </span> -->
         </div>
       </div>
     </div>

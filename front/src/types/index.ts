@@ -91,5 +91,4 @@ export interface PaginatedResponse<T> {
   pageSize: number;
 }
 
-export * from '../api/types';
-export * from '../api/mock'; 
+export * from '../api/types'; 

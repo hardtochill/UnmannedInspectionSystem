@@ -1,5 +1,18 @@
+<!--
+ * @Author: Fhx0902 YJX040124@outlook.com
+ * @Date: 2025-04-18 13:39:32
+ * @LastEditors: Fhx0902 YJX040124@outlook.com
+ * @LastEditTime: 2025-05-03 13:01:47
+ * @FilePath: \front\src\views\Home.vue
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+-->
 <template>
   <div class="home-container">
+    <el-loading 
+      v-if="loading" 
+      :fullscreen="true" 
+      text="加载中..."
+    />
     <div class="header">
       <div class="logo">无人巡检系统</div>
       <div class="nav-tabs">
@@ -15,15 +28,24 @@
       </div>
       <div class="header-right">
         <span class="time">{{ currentTime }}</span>
-        <el-dropdown @command="handleCommand">
+        <div class="user-info" v-if="!userStore.isLoggedIn()" @click="goToLogin">
+          <el-icon><User /></el-icon>
+          <span>未登录</span>
+        </div>
+        <el-dropdown v-else trigger="click" @command="handleCommand">
           <span class="user-info">
             <el-icon><User /></el-icon>
-            {{ userInfo.name || '管理员' }}
+            {{ userInfo.name }}
+            <el-icon><CaretBottom /></el-icon>
           </span>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="profile">个人信息</el-dropdown-item>
-              <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
+              <el-dropdown-item command="profile">
+                <el-icon><User /></el-icon>个人信息
+              </el-dropdown-item>
+              <el-dropdown-item divided command="logout">
+                <el-icon style="color: #ff4d4f;"><SwitchButton /></el-icon>退出登录
+              </el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
@@ -33,13 +55,13 @@
     <div class="dashboard">
       <div class="left-panel">
         <div class="chart-card">
-          <div class="card-header">设备类型统计</div>
+          <div class="card-header">车间设备统计</div>
           <div ref="deviceTypeChart" class="chart-container"></div>
         </div>
-        <div class="chart-card">
+        <!-- <div class="chart-card">
           <div class="card-header">设备运行状态</div>
           <div ref="deviceStatusChart" class="chart-container"></div>
-        </div>
+        </div> -->
         <div class="chart-card">
           <div class="card-header">设备类型占比</div>
           <div ref="deviceTypePieChart" class="chart-container"></div>
@@ -54,15 +76,34 @@
             <div class="status-count">{{ item.count }}台</div>
           </div>
         </div>
-        <div class="device-carousel" @mouseenter="showArrows = true" @mouseleave="showArrows = false">
+        <div class="device-carousel">
           <div class="carousel-header">
             <span class="title">设备运行状态</span>
           </div>
           <div class="carousel-content">
-            <button class="arrow left" v-show="showArrows" @click="prevDevice" aria-label="上一台设备">&#8592;</button>
             <div class="device-info" v-if="currentDevice">
-              <div class="device-image clickable" @click="goToDetail(currentDevice.id)">
-                <img :src="currentDevice.image" :alt="currentDevice.model">
+              <div class="device-image">
+                <el-image 
+                  :src="currentDevice.image" 
+                  :alt="currentDevice.model"
+                  fit="contain"
+                  :preview-src-list="currentDevice.image ? [currentDevice.image] : []"
+                  :initial-index="0"
+                  :loading="true"
+                >
+                  <template #error>
+                    <div class="image-error">
+                      <el-icon><Picture /></el-icon>
+                      <span>加载失败</span>
+                    </div>
+                  </template>
+                  <template #placeholder>
+                    <div class="image-loading">
+                      <el-icon class="is-loading"><Loading /></el-icon>
+                      <span>加载中...</span>
+                    </div>
+                  </template>
+                </el-image>
               </div>
               <div class="device-meta">
                 <div class="device-model-status">
@@ -71,9 +112,11 @@
                     {{ getStatusText(currentDevice.status) }}
                   </span>
                 </div>
+                <div class="device-workshop">
+                  {{ currentDevice.workshop }}
+                </div>
               </div>
             </div>
-            <button class="arrow right" v-show="showArrows" @click="nextDevice" aria-label="下一台设备">&#8594;</button>
           </div>
         </div>
       </div>
@@ -88,22 +131,24 @@
           <div ref="alarmCompareChart" class="chart-container"></div>
         </div>
         <div class="chart-card">
-          <div class="card-header">报警处理趋势</div>
-          <div ref="alarmTrendChart" class="chart-container"></div>
+          <div class="card-header">处理时间统计</div>
+          <div ref="processTimeChart" class="chart-container"></div>
         </div>
+
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed, watch, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import * as echarts from 'echarts';
 import 'echarts-gl';
-import { User } from '@element-plus/icons-vue';
-import { ElMessageBox, ElMessage } from 'element-plus';
-import { accountApi } from '../api/index';
+import { User, CaretBottom, SwitchButton, Picture, Loading } from '@element-plus/icons-vue';
+import { ElMessageBox, ElMessage, ElDropdown, ElDropdownMenu, ElDropdownItem } from 'element-plus';
+import { accountApi, alarmApi, deviceApi, workshopApi, mpApi } from '../api/index';
+import { useUserStore } from '@/stores/user';
 
 // Register map component
 echarts.registerMap('china', {
@@ -113,7 +158,10 @@ echarts.registerMap('china', {
 
 const route = useRoute();
 const router = useRouter();
-const currentPath = ref(route.path);
+const userStore = useUserStore();
+
+// 当前路径
+const currentPath = computed(() => route.path);
 const currentTime = ref(new Date().toLocaleString());
 
 // 导航项配置
@@ -121,63 +169,99 @@ const navItems = [
   { name: '工作台', path: '/workspace' },
   { name: '状态监测', path: '/status-monitoring' },
   { name: '报警管理', path: '/alarm-management' },
-  { name: '开停机记录', path: '/shutdown-record' },
+  // { name: '开停机记录', path: '/shutdown-record' },
   { name: '系统管理', path: '/system-management' }
   // { name: '功能详情', path: '/features' }
 ];
 
 // 状态概览数据
 const statusItems = ref([
-  { type: 'normal', label: '正常运行', value: 37, count: 35 },
-  { type: 'warning', label: '异常设备', value: 10, count: 10 },
-  { type: 'stopped', label: '停机设备', value: 35, count: 34 },
-  { type: 'offline', label: '断网设备', value: 18, count: 18 }
+  { type: 'normal', label: '运行中', value: 0, count: 0 },
+  { type: 'warning', label: '报警', value: 0, count: 0 },
+  { type: 'pending', label: '未处理', value: 0, count: 0 },
+  { type: 'success', label: '已处理', value: 0, count: 0 }
 ]);
 
 const showArrows = ref(false);
 
 // 设备列表数据（加id字段）
-const deviceList = ref([
-  {
-    id: 1,
-    model: 'XJ-2000',
-    image: 'https://example.com/device1.jpg',
-    status: 'normal',
-  },
-  {
-    id: 2,
-    model: 'XJ-3000',
-    image: 'https://example.com/device2.jpg',
-    status: 'warning',
-  },
-  {
-    id: 3,
-    model: 'XJ-4000',
-    image: 'https://example.com/device3.jpg',
-    status: 'stopped',
-  }
-]);
-
+const deviceList = ref([]);
 const currentDeviceIndex = ref(0);
 const currentDevice = computed(() => deviceList.value[currentDeviceIndex.value]);
 
 // 轮播定时器
 let carouselTimer;
 
-// 切换设备
-const switchDevice = (index) => {
-  currentDeviceIndex.value = index;
-  resetCarouselTimer();
+// 获取测点列表
+const fetchMeasurementPoints = async () => {
+  try {
+    const res = await mpApi.loadList({
+      pageNo: 1,
+      pageSize: 10,  // 获取10条数据
+      measuringPointStatus: undefined  // 不过滤状态
+    });
+    
+    if (res.code === 200) {
+      deviceList.value = res.data.list.map(item => ({
+        mpId: item.mpId,  // 保存测点ID
+        model: `${item.deviceName}-${item.measuringPointName}`,
+        image: '',  // 图片地址先置空
+        status: item.measuringPointStatus === 0 ? 'normal' : 'warning',
+        workshop: item.workshopName || item.workshop,
+        description: item.description,
+        imageLoaded: false  // 标记图片是否已加载
+      }));
+      
+      // console.log('测点列表:', deviceList.value); // 添加日志
+      
+      // 初始加载第一个测点的图片
+      if (deviceList.value.length > 0) {
+        await loadPointImage(0);
+      }
+    }
+  } catch (error) {
+    // console.error('获取测点列表失败:', error);
+    ElMessage.error('获取测点列表失败');
+  }
 };
 
-const prevDevice = () => {
-  currentDeviceIndex.value = (currentDeviceIndex.value - 1 + deviceList.value.length) % deviceList.value.length;
-  resetCarouselTimer();
+// 加载指定测点的图片
+const loadPointImage = async (index) => {
+  const point = deviceList.value[index];
+  if (!point || point.imageLoaded) return;  // 如果已加载过，直接返回
+
+  // console.log('加载测点图片:', point);
+
+  try {
+    const imgRes = await mpApi.loadImage({ 
+      mpId: point.mpId  // 使用测点ID请求图片
+    });
+    if (imgRes.code === 200 && imgRes.data) {
+      // 确保base64数据格式正确
+      point.image = imgRes.data.startsWith('data:image') 
+        ? imgRes.data 
+        : `data:image/jpeg;base64,${imgRes.data}`;
+    } else {
+      point.image = 'https://example.com/device1.jpg';  // 设置默认图片
+    }
+    point.imageLoaded = true;  // 标记为已加载
+    // console.log(point.image)
+  } catch (error) {
+    // console.error(`获取测点${point.mpId}图片失败:`, error);
+    point.image = 'https://example.com/device1.jpg';
+    point.imageLoaded = true;
+  }
 };
 
-const nextDevice = () => {
-  currentDeviceIndex.value = (currentDeviceIndex.value + 1) % deviceList.value.length;
-  resetCarouselTimer();
+// 自动切换设备
+const autoSwitchDevice = async () => {
+  if (deviceList.value.length > 0) {
+    const nextIndex = (currentDeviceIndex.value + 1) % deviceList.value.length;
+    // console.log('切换到下一个测点:', nextIndex, deviceList.value[nextIndex]); // 添加日志
+    // 预加载下一个测点的图片
+    await loadPointImage(nextIndex);
+    currentDeviceIndex.value = nextIndex;
+  }
 };
 
 // 重置轮播定时器
@@ -185,10 +269,17 @@ const resetCarouselTimer = () => {
   if (carouselTimer) {
     clearInterval(carouselTimer);
   }
-  carouselTimer = setInterval(() => {
-    currentDeviceIndex.value = (currentDeviceIndex.value + 1) % deviceList.value.length;
+  carouselTimer = setInterval(async () => {
+    await autoSwitchDevice();
   }, 5000);
 };
+
+// 监听当前设备索引变化，提前加载下一个测点的图片
+watch(currentDeviceIndex, async (newIndex) => {
+  const nextIndex = (newIndex + 1) % deviceList.value.length;
+  // 预加载下一个测点的图片
+  await loadPointImage(nextIndex);
+});
 
 // 获取状态文本
 const getStatusText = (status) => {
@@ -207,383 +298,541 @@ const deviceStatusChart = ref(null);
 const deviceTypePieChart = ref(null);
 const chinaMapChart = ref(null);
 const alarmStatChart = ref(null);
+const processTimeChart = ref(null);
 const alarmCompareChart = ref(null);
-const alarmTrendChart = ref(null);
 
 // 定时器引用
 let timer;
 
 // 用户信息
-const userInfo = ref({
-  name: '管理员',
-  role: 0
-});
-
-// 在组件挂载时更新用户信息
-const updateUserInfo = () => {
-  const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-  userInfo.value = {
-    name: currentUser.name || '管理员',
-    role: currentUser.roleType || 0
+const userInfo = computed(() => {
+  return {
+    name: userStore.currentUser?.name || '未登录',
+    role: userStore.currentUser?.roleType || 0
   };
-};
-
-// 跳转详情页
-const goToDetail = (id) => {
-  router.push(`/device-detail/${id}`);
-};
-
-onMounted(() => {
-  // 更新用户信息
-  updateUserInfo();
-  
-  // 更新时间
-  timer = setInterval(() => {
-    currentTime.value = new Date().toLocaleString();
-  }, 1000);
-
-  // 初始化图表
-  initCharts();
-  resetCarouselTimer();
 });
 
+// 监听路由变化
+watch(() => route.path, (newPath) => {
+  // console.log('路由变化:', newPath);
+});
+
+// 监听用户信息变化
+watch(
+  () => userStore.currentUser,
+  (newUser) => {
+    if (newUser) {
+      // 强制更新组件
+      currentTime.value = new Date().toLocaleString();
+    }
+  },
+  { deep: true }
+);
+
+// 跳转到登录页面
+const goToLogin = () => {
+  router.push('/login');
+};
+
+// 获取状态统计数据
+const fetchStatusData = async () => {
+  try {
+    // 获取报警处理状态统计
+    const alarmRes = await alarmApi.getStatusCount();
+    if (alarmRes.code === 200) {
+      const { processedCount, unprocessedCount } = alarmRes.data;
+      const totalAlarms = processedCount + unprocessedCount;
+      
+      // 更新已处理和未处理的数据
+      statusItems.value[2].count = unprocessedCount;
+      statusItems.value[2].value = totalAlarms ? Math.round((unprocessedCount / totalAlarms) * 100) : 0;
+      
+      statusItems.value[3].count = processedCount;
+      statusItems.value[3].value = totalAlarms ? Math.round((processedCount / totalAlarms) * 100) : 0;
+    }
+
+    // 获取设备状态统计
+    const deviceRes = await deviceApi.countStatus();
+    if (deviceRes.code === 200) {
+      const { runningCount, alarmCount, runningPercent, alarmPercent } = deviceRes.data;
+      
+      // 更新运行中和报警的数据
+      statusItems.value[0].count = runningCount;
+      statusItems.value[0].value = runningPercent*100;
+      
+      statusItems.value[1].count = alarmCount;
+      statusItems.value[1].value = alarmPercent*100;
+    }
+  } catch (error) {
+    // console.error('获取状态统计数据失败:', error);
+    ElMessage.error('获取状态统计数据失败');
+  }
+};
+
+// 获取设备类型统计数据
+const fetchWorkshopData = async () => {
+  try {
+    const res = await workshopApi.countDevice();
+    if (res.code === 200) {
+      const data = res.data;
+      // 转换数据格式
+      const xAxisData = Object.keys(data);
+      const seriesData = Object.values(data);
+
+      // 更新图表
+      if (deviceTypeChart.value) {
+        const chart = echarts.init(deviceTypeChart.value);
+        chart.setOption({
+          grid: {
+            top: '10%',
+            left: '3%',
+            right: '4%',
+            bottom: '3%',
+            containLabel: true
+          },
+          xAxis: {
+            type: 'category',
+            data: xAxisData,
+            axisLine: {
+              lineStyle: { color: '#8c8c8c' }
+            },
+            axisLabel: {
+              interval: 0,
+              rotate: 30
+            }
+          },
+          yAxis: {
+            type: 'value',
+            axisLine: {
+              lineStyle: { color: '#8c8c8c' }
+            },
+            splitLine: {
+              lineStyle: { color: 'rgba(140, 140, 140, 0.2)' }
+            }
+          },
+          series: [{
+            data: seriesData,
+            type: 'bar',
+            barWidth: '30%',
+            itemStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: '#83bff6' },
+                { offset: 0.5, color: '#188df0' },
+                { offset: 1, color: '#188df0' }
+              ])
+            }
+          }]
+        });
+      }
+    }
+  } catch (error) {
+    // console.error('获取设备类型统计数据失败:', error);
+    ElMessage.error('获取设备类型统计数据失败');
+  }
+};
+
+// 获取设备类型统计数据（饼图）
+const fetchDeviceTypeData = async () => {
+  try {
+    const res = await deviceApi.countType();
+    if (res.code === 200) {
+      const data = res.data;
+      // 转换数据格式为饼图所需格式
+      const pieData = Object.entries(data).map(([name, value]) => ({
+        name,
+        value
+      }));
+
+      // 更新饼图
+      if (deviceTypePieChart.value) {
+        const chart = echarts.init(deviceTypePieChart.value);
+        chart.setOption({
+          tooltip: {
+            trigger: 'item'
+          },
+          legend: {
+            orient: 'vertical',
+            right: '10%',
+            top: 'center',
+            textStyle: { color: '#8c8c8c' }
+          },
+          series: [{
+            type: 'pie',
+            radius: ['40%', '70%'],
+            center: ['40%', '50%'],
+            data: pieData,
+            itemStyle: {
+              borderColor: '#1a1c1e',
+              borderWidth: 2
+            },
+            label: {
+              show: false
+            }
+          }]
+        });
+      }
+    }
+  } catch (error) {
+    // console.error('获取设备类型统计数据失败:', error);
+    ElMessage.error('获取设备类型统计数据失败');
+  }
+};
+
+// 获取报警类型统计数据
+const fetchAlarmTypeData = async () => {
+  try {
+    const res = await alarmApi.countType();
+    if (res.code === 200) {
+      const data = res.data;
+      // 转换数据格式
+      const xAxisData = Object.keys(data);
+      const seriesData = Object.values(data);
+
+      // 更新报警统计图表
+      if (alarmStatChart.value) {
+        const chart = echarts.init(alarmStatChart.value);
+        chart.setOption({
+          grid: {
+            top: '10%',
+            left: '3%',
+            right: '4%',
+            bottom: '3%',
+            containLabel: true
+          },
+          tooltip: {
+            trigger: 'axis',
+            axisPointer: {
+              type: 'shadow'
+            }
+          },
+          xAxis: {
+            type: 'category',
+            data: xAxisData,
+            axisLine: {
+              lineStyle: { color: '#8c8c8c' }
+            },
+            axisLabel: {
+              interval: 0,
+              rotate: 30,
+              color: '#8c8c8c'
+            }
+          },
+          yAxis: {
+            type: 'value',
+            axisLine: {
+              lineStyle: { color: '#8c8c8c' }
+            },
+            splitLine: {
+              lineStyle: { color: 'rgba(140, 140, 140, 0.2)' }
+            },
+            axisLabel: {
+              color: '#8c8c8c'
+            }
+          },
+          series: [{
+            data: seriesData,
+            type: 'bar',
+            barWidth: '40%',
+            itemStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: '#ff4e50' },
+                { offset: 1, color: '#ff7875' }
+              ])
+            }
+          }]
+        });
+      }
+    }
+  } catch (error) {
+    // console.error('获取报警类型统计数据失败:', error);
+    ElMessage.error('获取报警类型统计数据失败');
+  }
+};
+
+// 添加月度报警统计数据获取方法
+const fetchAlarmMonthlyData = async () => {
+  try {
+    const res = await alarmApi.countAlarmTimeByMonth();
+    if (res.code === 200) {
+      const data = res.data;
+      // 更新报警趋势图表
+      if (alarmCompareChart.value) {
+        const chart = echarts.init(alarmCompareChart.value);
+        chart.setOption({
+          tooltip: {
+            trigger: 'axis',
+            axisPointer: {
+              type: 'shadow'
+            }
+          },
+          grid: {
+            top: '10%',
+            left: '3%',
+            right: '4%',
+            bottom: '3%',
+            containLabel: true
+          },
+          xAxis: {
+            type: 'category',
+            data: Object.keys(data),
+            axisLine: {
+              lineStyle: { color: '#8c8c8c' }
+            },
+            axisLabel: {
+              color: '#8c8c8c',
+              interval: 0,
+              rotate: 30
+            }
+          },
+          yAxis: {
+            type: 'value',
+            name: '报警数量',
+            nameTextStyle: {
+              color: '#8c8c8c'
+            },
+            axisLine: {
+              lineStyle: { color: '#8c8c8c' }
+            },
+            splitLine: {
+              lineStyle: { color: 'rgba(140, 140, 140, 0.2)' }
+            },
+            axisLabel: {
+              color: '#8c8c8c'
+            }
+          },
+          series: [{
+            name: '月度报警数',
+            type: 'line',
+            smooth: true,
+            data: Object.values(data),
+            itemStyle: {
+              color: '#ff4d4f'
+            },
+            areaStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: 'rgba(255, 77, 79, 0.3)' },
+                { offset: 1, color: 'rgba(255, 77, 79, 0.1)' }
+              ])
+            },
+            emphasis: {
+              focus: 'series'
+            }
+          }]
+        });
+      }
+    }
+  } catch (error) {
+    // console.error('获取月度报警统计数据失败:', error);
+    ElMessage.error('获取月度报警统计数据失败');
+  }
+};
+
+// 添加处理时间统计数据获取方法
+const fetchProcessTimeData = async () => {
+  try {
+    const res = await alarmApi.countProcessedTimeByMonth();
+    if (res.code === 200) {
+      const data = res.data;
+      // 更新处理时间统计图表
+      if (processTimeChart.value) {
+        const chart = echarts.init(processTimeChart.value);
+        chart.setOption({
+          tooltip: {
+            trigger: 'axis',
+            axisPointer: {
+              type: 'shadow'
+            }
+          },
+          grid: {
+            top: '10%',
+            left: '3%',
+            right: '4%',
+            bottom: '3%',
+            containLabel: true
+          },
+          xAxis: {
+            type: 'category',
+            data: Object.keys(data),
+            axisLine: {
+              lineStyle: { color: '#8c8c8c' }
+            },
+            axisLabel: {
+              color: '#8c8c8c',
+              interval: 0,
+              rotate: 30
+            }
+          },
+          yAxis: {
+            type: 'value',
+            name: '平均处理时间(分钟)',
+            nameTextStyle: {
+              color: '#8c8c8c'
+            },
+            axisLine: {
+              lineStyle: { color: '#8c8c8c' }
+            },
+            splitLine: {
+              lineStyle: { color: 'rgba(140, 140, 140, 0.2)' }
+            },
+            axisLabel: {
+              color: '#8c8c8c'
+            }
+          },
+          series: [{
+            name: '处理时间',
+            type: 'bar',
+            data: Object.values(data),
+            itemStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: '#409EFF' },
+                { offset: 1, color: '#36CFC9' }
+              ])
+            },
+            barWidth: '40%'
+          }]
+        });
+      }
+    }
+  } catch (error) {
+    // console.error('获取处理时间统计数据失败:', error);
+    ElMessage.error('获取处理时间统计数据失败');
+  }
+};
+
+// 修改刷新间隔为5分钟，减少请求频率
+const REFRESH_INTERVAL = 300000; // 5分钟刷新一次
+
+// 添加加载状态和刷新计数
+const loading = ref(false);
+const refreshCount = ref(0);
+
+// 添加 refreshTimer 声明
+let refreshTimer = null;
+
+// 优化组件挂载逻辑
+onMounted(async () => {
+  try {
+    // 初始化时间更新
+    timer = setInterval(() => {
+      currentTime.value = new Date().toLocaleString();
+    }, 1000);
+
+    // 分步骤初始化
+    await initializeData();
+    
+    // 开始自动刷新
+    startAutoRefresh();
+    
+    // 初始化轮播
+    resetCarouselTimer();
+  } catch (error) {
+    console.error('组件初始化失败:', error);
+    ElMessage.error('页面加载失败，请刷新重试');
+  }
+});
+
+// 优化初始化逻辑
+const initializeData = async () => {
+  if (loading.value) return;
+  
+  loading.value = true;
+  try {
+    // 然后加载数据
+    await loadData();
+  } catch (error) {
+    console.error('初始化失败:', error);
+    throw error;
+  } finally {
+    loading.value = false;
+  }
+};
+
+// 优化数据加载逻辑
+const loadData = async () => {
+  try {
+    const promises = [
+      fetchStatusData(),
+      fetchWorkshopData(),
+      fetchAlarmTypeData(),
+      fetchDeviceTypeData(),
+      fetchAlarmMonthlyData(),
+      fetchProcessTimeData(),
+      fetchMeasurementPoints() // 添加测点列表获取
+    ];
+    
+    await Promise.all(promises);
+    
+    await nextTick();
+    updateCharts();
+  } catch (error) {
+    console.error('加载数据失败:', error);
+    throw error;
+  }
+};
+
+// 添加更新图表的方法
+const updateCharts = () => {
+  if (!deviceTypeChart.value || !alarmStatChart.value) {
+    return;
+  }
+
+  // 重新渲染图表...
+  // 这里保持原有的图表更新逻辑
+};
+
+// 优化自动刷新逻辑
+const startAutoRefresh = () => {
+  stopAutoRefresh(); // 确保先停止之前的定时器
+  
+  refreshTimer = setInterval(() => {
+    if (!document.hidden) {
+      loadData().catch(error => {
+        console.error('自动刷新失败:', error);
+      });
+    }
+  }, REFRESH_INTERVAL);
+};
+
+// 添加停止自动刷新的方法
+const stopAutoRefresh = () => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+};
+
+// 优化组件卸载清理
 onBeforeUnmount(() => {
+  // 清理所有定时器
   if (timer) {
     clearInterval(timer);
+    timer = null;
   }
+  
   if (carouselTimer) {
     clearInterval(carouselTimer);
+    carouselTimer = null;
+  }
+  
+  stopAutoRefresh();
+  
+  // 销毁图表实例
+  if (deviceTypeChart.value) {
+    echarts.dispose(deviceTypeChart.value);
+  }
+  if (alarmStatChart.value) {
+    echarts.dispose(alarmStatChart.value);
+  }
+  if (deviceTypePieChart.value) {
+    echarts.dispose(deviceTypePieChart.value);
+  }
+  if (alarmCompareChart.value) {
+    echarts.dispose(alarmCompareChart.value);
+  }
+  if (processTimeChart.value) {
+    echarts.dispose(processTimeChart.value);
   }
 });
-
-const initCharts = () => {
-  // 设备类型统计柱状图
-  if (deviceTypeChart.value) {
-    const chart = echarts.init(deviceTypeChart.value);
-    chart.setOption({
-      grid: {
-        top: '10%',
-        left: '3%',
-        right: '4%',
-        bottom: '3%',
-        containLabel: true
-      },
-      xAxis: {
-        type: 'category',
-        data: ['类型A', '类型B', '类型C', '类型D', '类型E'],
-        axisLine: {
-          lineStyle: { color: '#8c8c8c' }
-        }
-      },
-      yAxis: {
-        type: 'value',
-        axisLine: {
-          lineStyle: { color: '#8c8c8c' }
-        },
-        splitLine: {
-          lineStyle: { color: 'rgba(140, 140, 140, 0.2)' }
-        }
-      },
-      series: [{
-        data: [80, 60, 40, 30, 20],
-        type: 'bar',
-        barWidth: '30%',
-        itemStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: '#83bff6' },
-            { offset: 0.5, color: '#188df0' },
-            { offset: 1, color: '#188df0' }
-          ])
-        }
-      }]
-    });
-  }
-
-  // 设备运行状态图表
-  if (deviceStatusChart.value) {
-    const chart = echarts.init(deviceStatusChart.value);
-    chart.setOption({
-      grid: {
-        top: '10%',
-        left: '3%',
-        right: '4%',
-        bottom: '3%',
-        containLabel: true
-      },
-      xAxis: {
-        type: 'category',
-        data: ['周一', '周二', '周三', '周四', '周五', '周六', '周日'],
-        axisLine: {
-          lineStyle: { color: '#8c8c8c' }
-        }
-      },
-      yAxis: {
-        type: 'value',
-        axisLine: {
-          lineStyle: { color: '#8c8c8c' }
-        },
-        splitLine: {
-          lineStyle: { color: 'rgba(140, 140, 140, 0.2)' }
-        }
-      },
-      series: [{
-        name: '正常运行',
-        type: 'line',
-        data: [85, 82, 88, 90, 87, 89, 86],
-        smooth: true,
-        lineStyle: { color: '#52c41a' },
-        areaStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(82, 196, 26, 0.3)' },
-            { offset: 1, color: 'rgba(82, 196, 26, 0.1)' }
-          ])
-        }
-      }, {
-        name: '异常设备',
-        type: 'line',
-        data: [5, 8, 4, 3, 6, 4, 7],
-        smooth: true,
-        lineStyle: { color: '#faad14' },
-        areaStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(250, 173, 20, 0.3)' },
-            { offset: 1, color: 'rgba(250, 173, 20, 0.1)' }
-          ])
-        }
-      }]
-    });
-  }
-
-  // 中国地图
-  if (chinaMapChart.value) {
-    const chart = echarts.init(chinaMapChart.value);
-    
-    // Define major cities with their coordinates
-    const cities = [
-      { name: '北京', value: [116.4551, 40.2539], data: 100 },
-      { name: '上海', value: [121.4648, 31.2891], data: 90 },
-      { name: '广州', value: [113.5107, 23.2196], data: 80 },
-      { name: '深圳', value: [114.5435, 22.5439], data: 85 },
-      { name: '成都', value: [104.0657, 30.6799], data: 75 }
-    ];
-
-    chart.setOption({
-      backgroundColor: '#282b30',
-      title: {
-        text: '设备分布',
-        left: 'center',
-        textStyle: {
-          color: '#fff'
-        }
-      },
-      tooltip: {
-        trigger: 'item',
-        formatter: '{b}: {c}'
-      },
-      visualMap: {
-        min: 0,
-        max: 100,
-        left: 'left',
-        top: 'bottom',
-        text: ['高', '低'],
-        calculable: true,
-        inRange: {
-          color: ['#142957', '#0b82c6']
-        },
-        textStyle: {
-          color: '#fff'
-        }
-      },
-      series: [{
-        name: '设备分布',
-        type: 'scatter',
-        coordinateSystem: 'geo',
-        data: cities,
-        symbolSize: 12,
-        label: {
-          show: false
-        },
-        itemStyle: {
-          color: '#ff4e50'
-        }
-      }]
-    });
-
-    // Handle window resize
-    window.addEventListener('resize', () => {
-      chart.resize();
-    });
-  }
-
-  // 报警统计列表
-  if (alarmStatChart.value) {
-    const chart = echarts.init(alarmStatChart.value);
-    chart.setOption({
-      grid: {
-        top: '10%',
-        left: '3%',
-        right: '4%',
-        bottom: '3%',
-        containLabel: true
-      },
-      xAxis: {
-        type: 'category',
-        data: ['温度异常', '压力异常', '液位异常', '振动异常', '电流异常'],
-        axisLine: {
-          lineStyle: { color: '#8c8c8c' }
-        },
-        axisLabel: {
-          interval: 0,
-          rotate: 30
-        }
-      },
-      yAxis: {
-        type: 'value',
-        axisLine: {
-          lineStyle: { color: '#8c8c8c' }
-        },
-        splitLine: {
-          lineStyle: { color: 'rgba(140, 140, 140, 0.2)' }
-        }
-      },
-      series: [{
-        data: [45, 32, 28, 19, 15],
-        type: 'bar',
-        barWidth: '40%',
-        itemStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: '#ff4e50' },
-            { offset: 1, color: '#ff4e50' }
-          ])
-        }
-      }]
-    });
-  }
-
-  // 报警对比统计
-  if (alarmCompareChart.value) {
-    const chart = echarts.init(alarmCompareChart.value);
-    chart.setOption({
-      grid: {
-        top: '10%',
-        left: '3%',
-        right: '4%',
-        bottom: '3%',
-        containLabel: true
-      },
-      xAxis: {
-        type: 'category',
-        data: ['1月', '2月', '3月', '4月', '5月', '6月'],
-        axisLine: {
-          lineStyle: { color: '#8c8c8c' }
-        }
-      },
-      yAxis: {
-        type: 'value',
-        axisLine: {
-          lineStyle: { color: '#8c8c8c' }
-        },
-        splitLine: {
-          lineStyle: { color: 'rgba(140, 140, 140, 0.2)' }
-        }
-      },
-      series: [{
-        name: '本月',
-        type: 'bar',
-        data: [120, 132, 101, 134, 90, 230],
-        barWidth: '30%',
-        itemStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: '#ff4e50' },
-            { offset: 1, color: '#ff4e50' }
-          ])
-        }
-      }, {
-        name: '上月',
-        type: 'bar',
-        data: [220, 182, 191, 234, 290, 330],
-        barWidth: '30%',
-        itemStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: '#8c8c8c' },
-            { offset: 1, color: '#8c8c8c' }
-          ])
-        }
-      }]
-    });
-  }
-
-  // 报警处理趋势
-  if (alarmTrendChart.value) {
-    const chart = echarts.init(alarmTrendChart.value);
-    chart.setOption({
-      grid: {
-        top: '10%',
-        left: '3%',
-        right: '4%',
-        bottom: '3%',
-        containLabel: true
-      },
-      xAxis: {
-        type: 'category',
-        data: ['2024-07', '2024-09', '2024-11'],
-        axisLine: { lineStyle: { color: '#8c8c8c' } }
-      },
-      yAxis: {
-        type: 'value',
-        axisLine: { lineStyle: { color: '#8c8c8c' } },
-        splitLine: { lineStyle: { color: 'rgba(140, 140, 140, 0.2)' } }
-      },
-      series: [{
-        data: [120, 800, 200],
-        type: 'line',
-        smooth: true,
-        lineStyle: { color: '#ff4e50' },
-        areaStyle: {
-          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(255, 78, 80, 0.3)' },
-            { offset: 1, color: 'rgba(255, 78, 80, 0.1)' }
-          ])
-        }
-      }]
-    });
-  }
-
-  // 设备类型饼图
-  if (deviceTypePieChart.value) {
-    const chart = echarts.init(deviceTypePieChart.value);
-    chart.setOption({
-      tooltip: {
-        trigger: 'item'
-      },
-      legend: {
-        orient: 'vertical',
-        right: '10%',
-        top: 'center',
-        textStyle: { color: '#8c8c8c' }
-      },
-      series: [{
-        type: 'pie',
-        radius: ['40%', '70%'],
-        center: ['40%', '50%'],
-        data: [
-          { value: 85, name: '类型A' },
-          { value: 5, name: '类型B' },
-          { value: 4, name: '类型C' },
-          { value: 3, name: '类型D' },
-          { value: 3, name: '类型E' }
-        ],
-        itemStyle: {
-          borderColor: '#1a1c1e',
-          borderWidth: 2
-        },
-        label: {
-          show: false
-        }
-      }]
-    });
-  }
-};
 
 // 处理下拉菜单命令
 const handleCommand = async (command) => {
@@ -603,34 +852,25 @@ const handleCommand = async (command) => {
           }
         );
         
-        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        // 清除用户状态
+        userStore.clearUser();
+        // 清除localStorage中的持久化数据
+        localStorage.removeItem('user');
         
-        if (currentUser.userId) {
-          console.log('准备登出用户:', currentUser);
-          await accountApi.logout(currentUser.userId);
-        } else {
-          console.warn('未找到用户信息，直接清理存储');
-        }
-
-        // 完全清理本地存储
-        localStorage.clear();
-        
-        ElMessage.success('退出成功');
+        // 跳转到登录页
         router.push('/login');
+        
+        ElMessage.success('已退出登录');
       } catch (error) {
-        if (error === 'cancel') {
-          return;
+        if (error !== 'cancel') {
+          console.error('退出登录错误:', error);
+          ElMessage.error('退出失败，请重试');
         }
-        console.error('登出错误:', error);
-        ElMessage.error('退出失败，请重试');
-        
-        // 即使失败也清理存储
-        localStorage.clear();
-        router.push('/login');
       }
       break;
   }
 };
+
 </script>
 
 <style scoped>
@@ -693,7 +933,16 @@ const handleCommand = async (command) => {
   display: flex;
   align-items: center;
   gap: 8px;
+  color: #fff;
   cursor: pointer;
+  padding: 0 8px;
+  height: 32px;
+  border-radius: 4px;
+  transition: all 0.3s;
+}
+
+.user-info:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .dashboard {
@@ -766,8 +1015,13 @@ const handleCommand = async (command) => {
 
 .status-normal .status-value { color: #52c41a; }
 .status-warning .status-value { color: #faad14; }
-.status-stopped .status-value { color: #ff4d4f; }
-.status-offline .status-value { color: #8c8c8c; }
+.status-pending .status-value { color: #ff4d4f; }
+.status-success .status-value { color: #409eff; }
+
+.status-badge.normal { background-color: #52c41a; }
+.status-badge.warning { background-color: #faad14; }
+.status-badge.pending { background-color: #ff4d4f; }
+.status-badge.success { background-color: #409eff; }
 
 .device-carousel {
   flex: 1;
@@ -817,19 +1071,21 @@ const handleCommand = async (command) => {
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: box-shadow 0.2s;
   margin: 0 auto;
 }
 
-.device-image img {
+.device-image :deep(.el-image) {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.device-image :deep(.el-image img) {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-}
-
-.device-image.clickable:hover {
-  box-shadow: 0 0 0 2px #409eff;
 }
 
 .device-meta {
@@ -860,11 +1116,6 @@ const handleCommand = async (command) => {
   font-size: 14px;
   color: #fff;
 }
-
-.status-badge.normal { background-color: #52c41a; }
-.status-badge.warning { background-color: #faad14; }
-.status-badge.stopped { background-color: #ff4d4f; }
-.status-badge.offline { background-color: #8c8c8c; }
 
 .arrow {
   position: absolute;
@@ -903,22 +1154,86 @@ const handleCommand = async (command) => {
 }
 
 :deep(.el-dropdown-menu) {
-  background-color: #282b30;
-  border: 1px solid #303030;
+  background-color: #282b30 !important;
+  border: 1px solid #303030 !important;
 }
 
 :deep(.el-dropdown-menu__item) {
+  color: #fff !important;
+  justify-content: flex-start !important;
+}
+
+:deep(.el-dropdown-menu__item:not(.is-disabled):hover) {
+  background-color: rgba(64, 158, 255, 0.1) !important;
+  color: #409EFF !important;
+}
+
+:deep(.el-dropdown-menu__item.is-disabled) {
+  color: #606266 !important;
+}
+
+:deep(.el-dropdown-menu__item.el-dropdown-menu__item--divided) {
+  border-top-color: #303030 !important;
+}
+
+:deep(.el-popper.is-light) {
+  border: none !important;
+}
+
+:deep(.el-popper__arrow) {
+  display: none !important;
+}
+
+/* 添加加载状态样式 */
+:deep(.el-loading-mask) {
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+:deep(.el-loading-text) {
   color: #fff;
 }
 
-:deep(.el-dropdown-menu__item:hover) {
-  background-color: #0762bd;
+:deep(.el-loading-spinner .path) {
+  stroke: #409EFF;
 }
 
-/* 添加分割线样式 */
-:deep(.el-dropdown-menu__item.is-divided) {
-  border-top: 1px solid #303030;
-  margin-top: 4px;
-  padding-top: 8px;
+.image-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #909399;
+  font-size: 14px;
+  gap: 8px;
+  height: 100%;
+}
+
+.image-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #909399;
+  font-size: 14px;
+  gap: 8px;
+  height: 100%;
+}
+
+.image-loading .el-icon {
+  font-size: 24px;
+  animation: rotating 2s linear infinite;
+}
+
+@keyframes rotating {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.device-image :deep(.el-image__inner) {
+  transition: all 0.3s ease;
+}
+
+.device-image :deep(.el-image__inner:hover) {
+  transform: scale(1.02);
 }
 </style>

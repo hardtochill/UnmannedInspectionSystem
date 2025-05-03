@@ -1,3 +1,11 @@
+<!--
+ * @Author: Fhx0902 YJX040124@outlook.com
+ * @Date: 2025-04-21 20:48:28
+ * @LastEditors: Fhx0902 YJX040124@outlook.com
+ * @LastEditTime: 2025-05-02 17:59:22
+ * @FilePath: \front\src\views\Profile.vue
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+-->
 <template>
   <div class="profile-container dark-theme">
     <CommonHeader :currentTime="currentTime" :theme="theme" @toggleTheme="toggleTheme" />
@@ -32,7 +40,7 @@
             >
               <el-tabs v-model="activeTab" class="profile-tabs">
                 <el-tab-pane label="基本信息" name="basic">
-                  <el-form-item label="用户名" prop="username">
+                  <el-form-item label="用户ID" prop="username">
                     <el-input v-model="userForm.username" disabled />
                   </el-form-item>
                   <el-form-item label="姓名" prop="name">
@@ -41,12 +49,7 @@
                   <el-form-item label="手机号码" prop="phone">
                     <el-input v-model="userForm.phone" :disabled="!isEditing" />
                   </el-form-item>
-                  <el-form-item label="邮箱" prop="email">
-                    <el-input v-model="userForm.email" :disabled="!isEditing" />
-                  </el-form-item>
-                  <el-form-item label="所属部门">
-                    <el-input v-model="userForm.department" disabled />
-                  </el-form-item>
+
                   <el-form-item label="角色">
                     <el-input v-model="userForm.role" disabled />
                   </el-form-item>
@@ -150,6 +153,10 @@ import { ElMessage } from 'element-plus';
 import CommonHeader from '@/components/CommonHeader.vue';
 import CommonSidebar from '@/components/CommonSidebar.vue';
 import CommonBreadcrumb from '@/components/CommonBreadcrumb.vue';
+import { userApi, accountApi } from '@/api';
+import { useUserStore } from '@/stores/user';
+
+const userStore = useUserStore();
 
 const currentTime = ref(new Date().toLocaleString());
 const theme = ref('dark');
@@ -171,7 +178,7 @@ const userInfo = ref({
 
 // 表单数据
 const userForm = reactive({
-  username: userInfo.value.username,
+  username: userInfo.value.userId,
   name: userInfo.value.name,
   phone: userInfo.value.phone,
   department: userInfo.value.department,
@@ -223,9 +230,9 @@ const formRules = {
 
 // 更新用户信息
 const updateUserInfo = () => {
-  const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+  const currentUser = userStore.currentUser || {};
   userInfo.value = {
-    username: currentUser.username || '',
+    username: currentUser.userId || '',
     name: currentUser.name || '',
     // 根据roleType转换角色显示文本
     role: currentUser.roleType === 1 ? '管理员' : '普通用户',
@@ -240,7 +247,6 @@ const updateUserInfo = () => {
     username: userInfo.value.username,
     name: userInfo.value.name,
     phone: userInfo.value.phone,
-    department: userInfo.value.department,
     role: userInfo.value.role
   });
 };
@@ -266,15 +272,33 @@ const saveChanges = async () => {
   await formRef.value.validate(async (valid) => {
     if (valid) {
       try {
-        // 这里应该调用后端 API
-        Object.assign(userInfo.value, {
+        // 调用更新用户信息的 API
+        const response = await userApi.update({
+          userId: userForm.username,
           name: userForm.name,
-          phone: userForm.phone
+          phoneNumber: userForm.phone
         });
-        ElMessage.success('保存成功');
-        isEditing.value = false;
+        
+        if (response.code === 200) {
+          // 更新 Pinia store 中的用户信息
+          const currentUser = userStore.currentUser;
+          userStore.setUser({
+            ...currentUser,
+            name: userForm.name,
+            phoneNumber: userForm.phone
+          });
+          
+          // 更新显示的用户信息
+          updateUserInfo();
+          
+          ElMessage.success('保存成功');
+          isEditing.value = false;
+        } else {
+          ElMessage.error(response.info || '保存失败');
+        }
       } catch (error) {
-        ElMessage.error('保存失败');
+        console.error('保存用户信息失败:', error);
+        ElMessage.error('保存失败，请稍后重试');
       }
     }
   });
@@ -297,11 +321,21 @@ const savePassword = async () => {
   await formRef.value.validate(async (valid) => {
     if (valid) {
       try {
-        // 这里应该调用后端 API
-        ElMessage.success('密码修改成功');
-        togglePasswordChange();
+        const response = await accountApi.changePassword({
+          userId: Number(userForm.username), // 确保转换为数字
+          oldPassword: userForm.oldPassword,
+          newPassword: userForm.newPassword
+        });
+
+        if (response.code === 200) {
+          ElMessage.success('密码修改成功');
+          togglePasswordChange();
+        } else {
+          ElMessage.error(response.info || '密码修改失败');
+        }
       } catch (error) {
-        ElMessage.error('密码修改失败');
+        console.error('密码修改失败:', error);
+        ElMessage.error('密码修改失败，请稍后重试');
       }
     }
   });
