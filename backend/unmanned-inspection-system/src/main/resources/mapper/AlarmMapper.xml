@@ -30,6 +30,7 @@
         <where>
             <if test="deviceType!=null">and d.device_type=#{deviceType}</if>
             <if test="status!=null">and a.status=#{status}</if>
+            <if test="mpId!=null">and mp_id=#{mpId}</if>
             <if test="startTime!=null">and alarm_time &gt;= #{startTime} </if>
             <if test="endTime!=null">and alarm_time &lt;= #{endTime}</if>
         </where>

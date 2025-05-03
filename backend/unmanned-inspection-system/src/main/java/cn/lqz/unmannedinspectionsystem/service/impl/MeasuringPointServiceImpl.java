@@ -2,39 +2,38 @@ package cn.lqz.unmannedinspectionsystem.service.impl;
 
 import cn.lqz.unmannedinspectionsystem.enums.ResponseCodeEnum;
 import cn.lqz.unmannedinspectionsystem.exceptions.BaseException;
+import cn.lqz.unmannedinspectionsystem.mapper.AlarmMapper;
 import cn.lqz.unmannedinspectionsystem.mapper.MeasuringPointMapper;
+import cn.lqz.unmannedinspectionsystem.pojo.dto.AlarmPageQueryDTO;
 import cn.lqz.unmannedinspectionsystem.pojo.dto.MeasuringPointPageQueryDTO;
-import cn.lqz.unmannedinspectionsystem.pojo.vo.MeasuringPointVO;
-import cn.lqz.unmannedinspectionsystem.pojo.vo.PageResultVO;
+import cn.lqz.unmannedinspectionsystem.pojo.vo.*;
+import cn.lqz.unmannedinspectionsystem.service.AlarmService;
 import cn.lqz.unmannedinspectionsystem.service.MeasuringPointService;
 import cn.lqz.unmannedinspectionsystem.utils.FilePathUtils;
 import com.github.pagehelper.Page;
 import com.github.pagehelper.PageHelper;
-import jakarta.servlet.ServletOutputStream;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 import javax.imageio.ImageIO;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.util.Base64;
+import java.util.List;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class MeasuringPointServiceImpl implements MeasuringPointService {
-    private final MeasuringPointMapper measuringPointMapper;
     @Value("${service.mp.image-folder-path}")
     private String mpImageFolderPath;
-
+    private final MeasuringPointMapper measuringPointMapper;
+    private final AlarmService alarmService;
     /**
      * 测点分页查询
      * @param measuringPointPageQueryDTO
@@ -54,15 +53,7 @@ public class MeasuringPointServiceImpl implements MeasuringPointService {
         try{
             for (MeasuringPointVO measuringPointVO : measuringPointVOPage) {
                 // 测点图片文件
-                File file = new File(FilePathUtils.generateMpImageFilePath(mpImageFolderPath, measuringPointVO.getMpId()));
-                if(!file.exists()){
-                    continue;
-                }
-                BufferedImage bufferedImage = ImageIO.read(file);
-                ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-                ImageIO.write(bufferedImage,"jpg",byteArrayOutputStream);
-                byte[] imageBytes = byteArrayOutputStream.toByteArray();
-                measuringPointVO.setBase64Image(Base64.getEncoder().encodeToString(imageBytes));
+                measuringPointVO.setBase64Image(loadImage(measuringPointVO.getMpId()));
             }
         }catch (Exception e){
             log.error("加载测点图片失败");
@@ -88,6 +79,20 @@ public class MeasuringPointServiceImpl implements MeasuringPointService {
         // 转Base64返回
         try{
             BufferedImage bufferedImage = ImageIO.read(file);
+
+            // 如果图片是 ARGB 格式（TYPE_4BYTE_ABGR），转换为 RGB 格式
+            if (bufferedImage.getType() == BufferedImage.TYPE_4BYTE_ABGR) {
+                BufferedImage rgbImage = new BufferedImage(
+                        bufferedImage.getWidth(),
+                        bufferedImage.getHeight(),
+                        BufferedImage.TYPE_3BYTE_BGR
+                );
+                Graphics2D g = rgbImage.createGraphics();
+                g.drawImage(bufferedImage, 0, 0, null);
+                g.dispose();
+                bufferedImage = rgbImage;
+            }
+
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
             ImageIO.write(bufferedImage,"jpg",byteArrayOutputStream);
             byte[] imageBytes = byteArrayOutputStream.toByteArray();
@@ -96,5 +101,28 @@ public class MeasuringPointServiceImpl implements MeasuringPointService {
             log.error("加载测点图片失败");
             throw new BaseException(ResponseCodeEnum.CODE_500);
         }
+    }
+
+    /**
+     * 获取测点详情
+     * @param mpId
+     * @return
+     */
+    @Override
+    public MeasuringPointDetailVO getMeasuringPointDetail(Long mpId) {
+        log.info("获取测点详情：{}",mpId);
+        // 获取测点详情
+        MeasuringPointDetailVO measuringPointDetailVO = measuringPointMapper.findMpDetailByMpId(mpId);
+        // 获取测点图片编码
+        measuringPointDetailVO.setBase64Image(loadImage(mpId));
+        // 获取该测点的所有报警记录
+        AlarmPageQueryDTO alarmPageQueryDTO = new AlarmPageQueryDTO();
+        alarmPageQueryDTO.setMpId(mpId);
+        alarmPageQueryDTO.setPageNo(1);
+        alarmPageQueryDTO.setPageSize(10);
+        PageResultVO pageResultVO = alarmService.loadAlarmList(alarmPageQueryDTO);
+        List<AlarmVO> list = pageResultVO.getList();
+        measuringPointDetailVO.setMpAlarmList(list);
+        return measuringPointDetailVO;
     }
 }

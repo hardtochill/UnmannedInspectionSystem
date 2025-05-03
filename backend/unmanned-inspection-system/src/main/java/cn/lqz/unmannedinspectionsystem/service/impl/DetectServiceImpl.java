@@ -3,6 +3,7 @@ package cn.lqz.unmannedinspectionsystem.service.impl;
 import cn.lqz.unmannedinspectionsystem.config.YoloConfig;
 import cn.lqz.unmannedinspectionsystem.enums.ResponseCodeEnum;
 import cn.lqz.unmannedinspectionsystem.exceptions.BaseException;
+import cn.lqz.unmannedinspectionsystem.pojo.dto.DetectDTO;
 import cn.lqz.unmannedinspectionsystem.service.DetectService;
 import cn.lqz.unmannedinspectionsystem.utils.FilePathUtils;
 import jakarta.servlet.ServletOutputStream;
@@ -29,11 +30,12 @@ public class DetectServiceImpl implements DetectService {
     private final YoloConfig yoloConfig;
     /**
      * 图片检测
-     * @param image
+     * @param detectDTO
      */
     @Override
-    public String detect(MultipartFile image) {
-        log.info("图片检测");
+    public String detect(DetectDTO detectDTO) {
+        log.info("图片检测：{}",detectDTO.getModelName());
+        MultipartFile image = detectDTO.getImage();
         // 图片目录生成
         File yoloInputImageFileFolder = new File(yoloConfig.getInputImageFolder());
         if(!yoloInputImageFileFolder.exists()){
@@ -45,12 +47,18 @@ public class DetectServiceImpl implements DetectService {
         try{
             image.transferTo(inputFile);
         }catch (Exception e){
-            log.error("图片输入异常");
+            log.error("图片上传异常");
             throw new BaseException(ResponseCodeEnum.CODE_500);
         }
 
+        // 模型不存在
+        String modelFilePath = FilePathUtils.generateYoloModelFilePath(yoloConfig.getModelFolder(), detectDTO.getModelName());
+        if(!new File(modelFilePath).exists()){
+            throw new BaseException(ResponseCodeEnum.CODE_400.getCode(),"模型不存在");
+        }
+
         // 检测
-        executeYolo(uuid.toString(),"best");
+        executeYolo(uuid.toString(),detectDTO.getModelName());
 
         // 读取图片
         File outputFile = new File(FilePathUtils.generateYoloOutputImageFilePath(yoloConfig.getOutputImageFolder(),uuid.toString()));

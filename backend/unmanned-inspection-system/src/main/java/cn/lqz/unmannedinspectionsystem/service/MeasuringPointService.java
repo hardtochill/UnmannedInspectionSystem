@@ -1,7 +1,9 @@
 package cn.lqz.unmannedinspectionsystem.service;
 
 import cn.lqz.unmannedinspectionsystem.pojo.dto.MeasuringPointPageQueryDTO;
+import cn.lqz.unmannedinspectionsystem.pojo.vo.MeasuringPointDetailVO;
 import cn.lqz.unmannedinspectionsystem.pojo.vo.PageResultVO;
+import cn.lqz.unmannedinspectionsystem.pojo.vo.ResponseVO;
 
 public interface MeasuringPointService {
     /**
@@ -16,4 +18,11 @@ public interface MeasuringPointService {
      * @param mpId
      */
     String loadImage(Long mpId);
+
+    /**
+     * 获取测点详情
+     * @param mpId
+     * @return
+     */
+    MeasuringPointDetailVO getMeasuringPointDetail(Long mpId);
 }

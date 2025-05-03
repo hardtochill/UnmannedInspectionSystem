@@ -32,4 +32,6 @@ public class MeasuringPointVO {
      * 测点图片Base64编码
      */
     private String base64Image;
+
+
 }

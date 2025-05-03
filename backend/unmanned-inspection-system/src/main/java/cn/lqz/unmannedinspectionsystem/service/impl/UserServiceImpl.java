@@ -1,6 +1,8 @@
 package cn.lqz.unmannedinspectionsystem.service.impl;
 
+import cn.lqz.unmannedinspectionsystem.enums.ResponseCodeEnum;
 import cn.lqz.unmannedinspectionsystem.enums.UserStatusEnum;
+import cn.lqz.unmannedinspectionsystem.exceptions.BaseException;
 import cn.lqz.unmannedinspectionsystem.mapper.UserMapper;
 import cn.lqz.unmannedinspectionsystem.pojo.dto.UserPageQueryDTO;
 import cn.lqz.unmannedinspectionsystem.pojo.entity.User;
@@ -32,12 +34,19 @@ public class UserServiceImpl implements UserService {
     @Override
     public void createOrUpdate(User user) {
         log.info("用户新增或修改：{}",user);
+        User existPhoneNumber = userMapper.findByPhoneNumber(user.getPhoneNumber());
         // 新增
         if(null == user.getUserId()){
+            if(existPhoneNumber!=null){
+                throw new BaseException(ResponseCodeEnum.CODE_400.getCode(),"电话号码已存在");
+            }
             user.setPassword(defaultPassword);
             user.setStatus(UserStatusEnum.ENABLE.getStatus());
             userMapper.insert(user);
         }else{ // 修改
+            if(!existPhoneNumber.getUserId().equals(user.getUserId())){
+                throw new BaseException(ResponseCodeEnum.CODE_400.getCode(),"电话号码已存在");
+            }
             userMapper.update(user);
         }
     }

@@ -35,6 +35,14 @@
             <if test="deviceName!=null">and d.name like concat('%',#{deviceName},'%')</if>
         </where>
     </select>
+    <select id="findMpDetailByMpId"
+            resultType="cn.lqz.unmannedinspectionsystem.pojo.vo.MeasuringPointDetailVO">
+        select mp.mp_id as mpId,w.name as workshopName,d.name as deviceName,mp.name as mpName,mp.update_time as lastUpdateTime
+        from measuring_point mp
+            left outer join device d on mp.device_id = d.device_id
+            left outer join workshop w on d.workshop_id = w.workshop_id
+        where mp.mp_id = #{mpId}
+    </select>
 
 
 </mapper>
