@@ -1,11 +1,3 @@
-<!--
- * @Author: Fhx0902 YJX040124@outlook.com
- * @Date: 2025-04-18 23:01:31
- * @LastEditors: Fhx0902 YJX040124@outlook.com
- * @LastEditTime: 2025-04-30 19:19:23
- * @FilePath: \front\src\components\CommonHeader.vue
- * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
--->
 <template>
   <el-header class="common-header">
     <div class="header-left">
@@ -13,24 +5,31 @@
     </div>
     <div class="header-right">
       <span class="time">{{ currentTime }}</span>
-
-      <el-dropdown @command="handleCommand">
+      <div class="user-info" v-if="!userStore.isLoggedIn()" @click="goToLogin">
+        <el-icon><User /></el-icon>
+        <span>未登录</span>
+      </div>
+      <el-dropdown v-else @command="handleCommand">
         <span class="user-info">
           <el-icon><User /></el-icon>
-          {{ currentUser?.name || '未登录' }}
+          {{ userStore.currentUser?.name }}
           <el-icon><CaretBottom /></el-icon>
         </span>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item command="profile">个人信息</el-dropdown-item>
-            <!-- <el-dropdown-item command="logout">退出登录</el-dropdown-item> -->
+            <el-dropdown-item command="profile">
+              <el-icon><User /></el-icon>个人信息
+            </el-dropdown-item>
+            <el-dropdown-item divided command="logout">
+              <el-icon style="color: #ff4d4f;"><SwitchButton /></el-icon>退出登录
+            </el-dropdown-item>
           </el-dropdown-menu>
         </template>
       </el-dropdown>
 
-      <div class="system-icons">
+      <!-- <div class="system-icons"> -->
         <!-- 设置按钮 -->
-        <el-popover
+        <!-- <el-popover
           placement="bottom-end"
           :width="300"
           trigger="click"
@@ -73,9 +72,9 @@
               </el-select>
             </div>
           </div>
-        </el-popover>
+        </el-popover> -->
 
-        <!-- 通知按钮 -->
+        <!-- 通知按钮
         <el-badge :value="unreadCount" :hidden="!unreadCount">
           <el-popover
             placement="bottom-end"
@@ -145,8 +144,8 @@
               </div>
             </div>
           </el-popover>
-        </el-badge>
-      </div>
+        </el-badge> -->
+      <!-- </div> -->
     </div>
   </el-header>
 </template>
@@ -154,25 +153,20 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { ElMessage } from 'element-plus';
-import { User, CaretBottom, Setting, Bell, Warning, InfoFilled } from '@element-plus/icons-vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { User, CaretBottom, Setting, Bell, Warning, InfoFilled, SwitchButton } from '@element-plus/icons-vue';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/zh-cn';
 import { accountApi } from '@/api';
+import { useUserStore } from '@/stores/user';
 
 dayjs.extend(relativeTime);
 dayjs.locale('zh-cn');
 
 const router = useRouter();
+const userStore = useUserStore();
 const currentTime = ref(new Date().toLocaleString());
-
-// 修改用户信息获取方式
-const currentUser = ref(null);
-const updateUserInfo = () => {
-  const userInfo = JSON.parse(localStorage.getItem('currentUser') || '{}');
-  currentUser.value = userInfo;
-};
 
 // 系统设置相关
 const isDarkTheme = ref(localStorage.getItem('theme') === 'dark');
@@ -182,42 +176,18 @@ const refreshInterval = ref(localStorage.getItem('refreshInterval') || '60');
 
 // 通知相关
 const activeTab = ref('alarm');
-const alarmNotifications = ref([
-  {
-    id: 1,
-    type: 'alarm',
-    title: '设备温度异常',
-    description: '设备A1温度超过阈值，请及时处理',
-    time: new Date().getTime() - 1000 * 60 * 5,
-    read: false
-  },
-  {
-    id: 2,
-    type: 'alarm',
-    title: '设备离线告警',
-    description: '设备B2已离线，请检查网络连接',
-    time: new Date().getTime() - 1000 * 60 * 30,
-    read: false
-  }
-]);
 
-const systemNotifications = ref([
-  {
-    id: 3,
-    type: 'info',
-    title: '系统维护通知',
-    description: '系统将于今晚22:00进行例行维护',
-    time: new Date().getTime() - 1000 * 60 * 60,
-    read: false
-  }
-]);
+// // 计算未读消息数
+// const unreadCount = computed(() => {
+//   const alarmUnread = alarmNotifications.value.filter(n => !n.read).length;
+//   const systemUnread = systemNotifications.value.filter(n => !n.read).length;
+//   return alarmUnread + systemUnread;
+// });
 
-// 计算未读消息数
-const unreadCount = computed(() => {
-  const alarmUnread = alarmNotifications.value.filter(n => !n.read).length;
-  const systemUnread = systemNotifications.value.filter(n => !n.read).length;
-  return alarmUnread + systemUnread;
-});
+// 跳转到登录页面
+const goToLogin = () => {
+  router.push('/login');
+};
 
 // 处理下拉菜单命令
 const handleCommand = async (command) => {
@@ -227,84 +197,86 @@ const handleCommand = async (command) => {
       break;
     case 'logout':
       try {
-        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-        console.log('准备登出用户:', currentUser);
-        
-        if (currentUser.userId) {
-          // 先发送登出请求
-          const response = await accountApi.logout(currentUser.userId);
-          
-          if (response.code === 200) {
-            ElMessage.success('退出成功');
-          } else {
-            console.warn('登出请求返回异常:', response);
-            ElMessage.warning('登出异常，请重试');
+        await ElMessageBox.confirm(
+          '确定要退出登录吗？',
+          '提示',
+          {
+            confirmButtonText: '确定',
+            cancelButtonText: '取消',
+            type: 'warning'
           }
-        } else {
-          console.warn('未找到用户ID，直接清理存储');
-        }
+        );
         
+        // 清除用户状态
+        userStore.clearUser();
+        // 清除localStorage中的持久化数据
+        localStorage.removeItem('user');
+        
+        // 跳转到登录页
         router.push('/login');
+        
+        ElMessage.success('已退出登录');
       } catch (error) {
-        console.error('登出错误:', error);
-        ElMessage.error('退出失败，请重试');
-        router.push('/login');
+        if (error !== 'cancel') {
+          console.error('退出登录错误:', error);
+          ElMessage.error('退出失败，请重试');
+        }
       }
       break;
   }
 };
 
-// 切换主题
-const toggleTheme = (value) => {
-  const theme = value ? 'dark' : 'light';
-  localStorage.setItem('theme', theme);
-  document.documentElement.classList.toggle('dark', value);
-  ElMessage.success(`已切换至${theme === 'dark' ? '深色' : '浅色'}主题`);
-};
+// // 切换主题
+// const toggleTheme = (value) => {
+//   const theme = value ? 'dark' : 'light';
+//   localStorage.setItem('theme', theme);
+//   document.documentElement.classList.toggle('dark', value);
+//   ElMessage.success(`已切换至${theme === 'dark' ? '深色' : '浅色'}主题`);
+// };
 
-// 切换通知
-const toggleNotification = (value) => {
-  localStorage.setItem('notificationEnabled', value);
-  if (!value) {
-    soundEnabled.value = false;
-    localStorage.setItem('soundEnabled', false);
-  }
-  ElMessage.success(`已${value ? '开启' : '关闭'}通知`);
-};
+// // 切换通知
+// const toggleNotification = (value) => {
+//   localStorage.setItem('notificationEnabled', value);
+//   if (!value) {
+//     soundEnabled.value = false;
+//     localStorage.setItem('soundEnabled', false);
+//   }
+//   ElMessage.success(`已${value ? '开启' : '关闭'}通知`);
+// };
 
 // 格式化时间
 const formatTime = (timestamp) => {
   return dayjs(timestamp).fromNow();
 };
 
-// 获取通知图标样式
-const getNotificationIcon = (type) => {
-  return {
-    'notification-icon': true,
-    'alarm-icon': type === 'alarm',
-    'info-icon': type === 'info'
-  };
-};
+// // 获取通知图标样式
+// const getNotificationIcon = (type) => {
+//   return {
+//     'notification-icon': true,
+//     'alarm-icon': type === 'alarm',
+//     'info-icon': type === 'info'
+//   };
+// };
 
-// 处理通知点击
-const handleNotificationClick = (notification) => {
-  if (!notification.read) {
-    notification.read = true;
-    // 这里可以调用后端 API 更新已读状态
-  }
+// // 处理通知点击
+// const handleNotificationClick = (notification) => {
+//   if (!notification.read) {
+//     notification.read = true;
+//     // 这里可以调用后端 API 更新已读状态
+//   }
   
-  // 根据通知类型处理跳转
-  if (notification.type === 'alarm') {
-    router.push('/alarm-management');
-  }
-};
+//   // 根据通知类型处理跳转
+//   if (notification.type === 'alarm') {
+//     router.push('/alarm-management');
+//   }
+// };
 
-// 全部已读
-const readAllNotifications = () => {
-  alarmNotifications.value.forEach(n => n.read = true);
-  systemNotifications.value.forEach(n => n.read = true);
-  ElMessage.success('已全部标记为已读');
-};
+// // 全部已读
+// const readAllNotifications = () => {
+//   alarmNotifications.value.forEach(n => n.read = true);
+//   systemNotifications.value.forEach(n => n.read = true);
+//   ElMessage.success('已全部标记为已读');
+// };
 
 // 监听刷新间隔变化
 let refreshTimer;
@@ -324,9 +296,6 @@ const startRefreshTimer = () => {
 
 // 在组件挂载时更新用户信息
 onMounted(() => {
-  // 更新用户信息
-  updateUserInfo();
-  
   // 更新时间
   setInterval(() => {
     currentTime.value = new Date().toLocaleString();

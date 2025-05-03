@@ -9,25 +9,38 @@
         <div class="content-section">
           <div class="section-header">
             <div class="filter-section">
-              <el-date-picker
-                v-model="dateRange"
-                type="daterange"
-                range-separator="至"
-                start-placeholder="开始日期"
-                end-placeholder="结束日期"
-                class="filter-item"
-              />
-              <el-select v-model="deviceType" placeholder="设备类型" class="filter-item">
-                <el-option label="类型1" value="type1" />
-                <el-option label="类型2" value="type2" />
-              </el-select>
-              <el-select v-model="status" placeholder="处理状态" class="filter-item">
-                <el-option label="待处理" value="pending" />
-                <el-option label="处理中" value="processing" />
-                <el-option label="已处理" value="completed" />
-              </el-select>
-              <el-button type="primary" @click="query">查询</el-button>
-              <el-button @click="reset">重置</el-button>
+              <div class="filter-container">
+                <div class="filter-items">
+                  <el-date-picker
+                    v-model="dateRange"
+                    type="daterange"
+                    range-separator="至"
+                    start-placeholder="开始日期"
+                    end-placeholder="结束日期"
+                    class="filter-item"
+                  />
+                  <el-select v-model="deviceType" placeholder="设备类型" class="filter-item">
+                    <el-option
+                      v-for="option in deviceTypeOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </el-select>
+                  <el-select v-model="status" placeholder="处理状态" class="filter-item">
+                    <el-option
+                      v-for="option in statusOptions"
+                      :key="option.value"
+                      :label="option.label"
+                      :value="option.value"
+                    />
+                  </el-select>
+                  <div class="filter-buttons">
+                    <el-button type="primary" @click="query">查询</el-button>
+                    <el-button @click="reset">重置</el-button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -37,17 +50,8 @@
                 <el-icon><Warning /></el-icon>
               </div>
               <div class="card-content">
-                <h3>待处理报警</h3>
-                <div class="main-value">{{ alarmCount.pending || 156 }}</div>
-              </div>
-            </div>
-            <div class="status-card">
-              <div class="card-icon processing">
-                <el-icon><Loading /></el-icon>
-              </div>
-              <div class="card-content">
-                <h3>处理中报警</h3>
-                <div class="main-value">{{ alarmCount.processing || 23 }}</div>
+                <h3>未处理报警</h3>
+                <div class="main-value">{{ alarmData.filter(item => item.status === 0).length }}</div>
               </div>
             </div>
             <div class="status-card">
@@ -56,7 +60,7 @@
               </div>
               <div class="card-content">
                 <h3>已处理报警</h3>
-                <div class="main-value">{{ alarmCount.completed || 892 }}</div>
+                <div class="main-value">{{ alarmData.filter(item => item.status === 1).length }}</div>
               </div>
             </div>
           </div>
@@ -65,26 +69,38 @@
             :data="alarmData" 
             style="width: 100%"
             class="custom-table"
+            v-loading="loading"
           >
-            <el-table-column type="index" label="序号" width="80" />
-            <el-table-column prop="name" label="设备名称" />
-            <el-table-column prop="type" label="报警类型" />
-            <el-table-column prop="time" label="报警时间" />
-            <el-table-column prop="status" label="处理状态">
+            <el-table-column type="index" label="序号" width="70" />
+            <el-table-column prop="deviceId" label="设备ID" width="100" />
+            <el-table-column prop="deviceName" label="设备名称">
+              <template #default="{ row }">
+                {{ row.deviceName || '未知设备' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="mpId" label="测点ID" width="100" />
+            <el-table-column prop="typeString" label="报警类型">
+              <template #default="{ row }">
+                {{ row.typeString || '无' }}
+              </template>
+            </el-table-column>
+            <el-table-column prop="status" label="处理状态" width="120">
               <template #default="{ row }">
                 <el-tag :type="getStatusType(row.status)">
-                  {{ row.status }}
+                  {{ getStatusLabel(row.status) }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="200">
+            <el-table-column prop="alarmTime" label="报警时间" width="180" />
+            <el-table-column label="操作" width="100" fixed="right">
               <template #default="{ row }">
-                <el-button type="primary" link @click="handleAlarmDetail(row)">详情</el-button>
-                <el-button type="primary" link @click="handleProcess(row)" v-if="row.status === '待处理'">
-                  处理
-                </el-button>
-                <el-button type="primary" link @click="viewProcessLog(row)" v-if="row.status === '已处理'">
-                  处理记录
+                <el-button 
+                  type="primary" 
+                  link 
+                  @click="markAsProcessed(row.alarmId)"
+                  :disabled="row.status === 1"
+                >
+                  {{ row.status === 1 ? '已处理' : '标记已处理' }}
                 </el-button>
               </template>
             </el-table-column>
@@ -108,23 +124,27 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { Warning, Loading, CircleCheckFilled } from '@element-plus/icons-vue';
 import CommonHeader from '@/components/CommonHeader.vue';
 import CommonSidebar from '@/components/CommonSidebar.vue';
 import CommonBreadcrumb from '@/components/CommonBreadcrumb.vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
+import { alarmApi } from '@/api';
 
 const currentTime = ref(new Date().toLocaleString());
 const theme = ref('dark');
 const isCollapse = ref(false);
-
-const deviceType = ref('');
-const alarmLevel = ref('');
-const status = ref('');
+// 设备类型 整形
+const deviceType = ref(-1);
+// 处理状态 整形
+const status = ref(-1);
+// 日期范围
 const dateRange = ref([]);
+// 当前页
 const currentPage = ref(1);
+// 每页大小
 const pageSize = ref(10);
 const total = ref(100);
 const loading = ref(false);
@@ -136,153 +156,153 @@ const alarmCount = ref({
 });
 
 const alarmData = ref([
-  { 
-    id: '1',
-    deviceId: 'device1',
-    name: '设备1', 
-    type: '温度异常', 
-    level: '1',
-    time: '2024-04-19 10:30:00',
-    status: '待处理'
-  },
-  { 
-    id: '2',
-    deviceId: 'device2',
-    name: '设备2', 
-    type: '压力异常', 
-    level: '2',
-    time: '2024-04-19 10:28:00',
-    status: '处理中'
-  },
-  { 
-    id: '3',
-    deviceId: 'device3',
-    name: '设备3', 
-    type: '振动异常', 
-    level: '3',
-    time: '2024-04-19 10:25:00',
-    status: '已处理'
-  }
 ]);
 
 const router = useRouter();
 
-const getAlarmLevelType = (level) => {
-  const types = {
-    '1': 'danger',
-    '2': 'warning',
-    '3': 'info'
-  };
-  return types[level] || 'info';
+// 设备类型选项
+const deviceTypeOptions = [
+  { label: '全部', value: -1 },
+  { label: '设备0', value: 0 },
+  { label: '设备1', value: 1 },
+  { label: '设备2', value: 2 },
+  { label: '设备3', value: 3 }
+];
+
+// 处理状态选项
+const statusOptions = [
+  { label: '全部', value: -1 },
+  { label: '已处理', value: 1 },
+  { label: '未处理', value: 0 }
+];
+
+
+// 获取状态描述
+const getStatusLabel = (statusValue) => {
+  return statusOptions.find(option => option.value === statusValue)?.label || '未知状态';
 };
 
-const getStatusType = (status) => {
+// 获取状态对应的类型（用于标签样式）
+const getStatusType = (statusValue) => {
   const types = {
-    '待处理': 'danger',
-    '处理中': 'warning',
-    '已处理': 'success'
+    1: 'success',   // 已处理
+    0: 'danger'     // 未处理
   };
-  return types[status] || 'info';
+  return types[statusValue] || 'info';
 };
 
-// 模拟API调用
-const fetchAlarmData = async (params) => {
+// 定时器
+let dataTimer = null;
+const REFRESH_INTERVAL = 30000; // 30秒刷新一次
+
+const statusItems = ref([
+  { type: 'normal', label: '正常运行', value: 70, count: 70 },
+  { type: 'warning', label: '报警设备', value: 10, count: 10 },
+  { type: 'pending', label: '未处理', value: 12, count: 12 },
+  { type: 'success', label: '已处理', value: 8, count: 8 }
+]);
+
+// 获取报警状态统计
+const fetchStatusCount = async () => {
+  try {
+    const res = await alarmApi.getStatusCount();
+    if (res.code === 200) {
+      // 更新状态卡片数据
+      statusItems.value = [
+        { type: 'normal', label: '正常运行', value: 70, count: 70 },
+        { type: 'warning', label: '报警设备', value: 10, count: 10 },
+        { type: 'pending', label: '未处理', value: res.data.unprocessed, count: res.data.unprocessed },
+        { type: 'success', label: '已处理', value: res.data.processed, count: res.data.processed }
+      ];
+    }
+  } catch (error) {
+    // console.error('获取报警状态统计失败:', error);
+    ElMessage.error('获取数据失败');
+  }
+};
+
+// 获取报警数据
+const fetchAlarmData = async () => {
   loading.value = true;
   try {
-    // 实际项目中这里应该调用后端API
-    // 这里模拟API调用延迟
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    // 模拟数据过滤
-    let filteredData = [...mockAlarmData];
-    
-    if (params.deviceType) {
-      filteredData = filteredData.filter(item => item.type === params.deviceType);
+    const [listRes, statsRes] = await Promise.all([
+      alarmApi.loadList({
+        pageNo: currentPage.value,
+        pageSize: pageSize.value,
+        deviceType: deviceType.value === -1 ? undefined : deviceType.value,
+        status: status.value === -1 ? undefined : status.value,
+        startTime: dateRange.value?.[0]?.format('YYYY-MM-DD HH:mm:ss'),
+        endTime: dateRange.value?.[1]?.format('YYYY-MM-DD HH:mm:ss')
+      }),
+      alarmApi.getStatusCount()  // 添加获取状态统计
+    ]);
+
+    if (listRes.code === 200) {
+      alarmData.value = listRes.data.list;
+      total.value = listRes.data.pageTotal;
+      currentPage.value = listRes.data.pageNo;
+      pageSize.value = listRes.data.pageSize;
     }
-    
-    if (params.alarmLevel) {
-      filteredData = filteredData.filter(item => item.level === params.alarmLevel);
+
+    if (statsRes.code === 200) {
+      // 更新状态卡片数据
+      statusItems.value = [
+        { type: 'normal', label: '正常运行', value: 70, count: 70 },
+        { type: 'warning', label: '报警设备', value: 10, count: 10 },
+        { type: 'pending', label: '未处理', value: statsRes.data.unprocessed, count: statsRes.data.unprocessed },
+        { type: 'success', label: '已处理', value: statsRes.data.processed, count: statsRes.data.processed }
+      ];
     }
-    
-    if (params.status) {
-      filteredData = filteredData.filter(item => item.status === params.status);
-    }
-    
-    if (params.dateRange && params.dateRange.length === 2) {
-      const startDate = new Date(params.dateRange[0]).getTime();
-      const endDate = new Date(params.dateRange[1]).getTime();
-      filteredData = filteredData.filter(item => {
-        const itemDate = new Date(item.time).getTime();
-        return itemDate >= startDate && itemDate <= endDate;
-      });
-    }
-    
-    // 更新总数
-    total.value = filteredData.length;
-    
-    // 分页处理
-    const start = (params.currentPage - 1) * params.pageSize;
-    const end = start + params.pageSize;
-    
-    return {
-      list: filteredData.slice(start, end),
-      total: filteredData.length,
-      alarmCount: {
-        pending: filteredData.filter(item => item.status === '待处理').length,
-        processing: filteredData.filter(item => item.status === '处理中').length,
-        completed: filteredData.filter(item => item.status === '已处理').length
-      }
-    };
   } catch (error) {
+    // console.error('获取报警数据失败:', error);
     ElMessage.error('获取数据失败');
-    return {
-      list: [],
-      total: 0,
-      alarmCount: { pending: 0, processing: 0, completed: 0 }
-    };
   } finally {
     loading.value = false;
   }
 };
 
-// 模拟数据
-const mockAlarmData = [
-  { 
-    id: '1',
-    deviceId: 'device1',
-    name: '设备1', 
-    type: '温度异常', 
-    level: '1',
-    time: '2024-04-19 10:30:00',
-    status: '待处理'
-  },
-  // ... 添加更多模拟数据
-];
+// 开始定时刷新
+const startAutoRefresh = () => {
+  // 清除可能存在的旧定时器
+  stopAutoRefresh();
+
+  // 设置新的定时器
+  dataTimer = window.setInterval(() => {
+    fetchAlarmData();
+  }, REFRESH_INTERVAL);
+};
+
+// 停止定时刷新
+const stopAutoRefresh = () => {
+  if (dataTimer) {
+    clearInterval(dataTimer);
+    dataTimer = null;
+  }
+};
+
+// 组件挂载时获取数据并开始定时刷新
+onMounted(() => {
+  fetchAlarmData();
+  startAutoRefresh();
+});
+
+// 组件卸载时清理定时器
+onBeforeUnmount(() => {
+  stopAutoRefresh();
+});
 
 // 查询方法
-const query = async () => {
-  const params = {
-    deviceType: deviceType.value,
-    alarmLevel: alarmLevel.value,
-    status: status.value,
-    dateRange: dateRange.value,
-    currentPage: currentPage.value,
-    pageSize: pageSize.value
-  };
-  
-  const { list, total: totalCount, alarmCount: counts } = await fetchAlarmData(params);
-  alarmData.value = list;
-  total.value = totalCount;
-  alarmCount.value = counts;
+const query = () => {
+  fetchAlarmData();
 };
 
 // 重置方法
 const reset = () => {
-  deviceType.value = '';
-  alarmLevel.value = '';
-  status.value = '';
+  deviceType.value = -1;
+  status.value = -1;
   dateRange.value = [];
   currentPage.value = 1;
+  pageSize.value = 10;
   query();
 };
 
@@ -297,11 +317,6 @@ const handleCurrentChange = (val) => {
   query();
 };
 
-// 初始化加载
-onMounted(() => {
-  query();
-});
-
 const handleAlarmDetail = (row) => {
   router.push({
     path: `/device-detail/${row.deviceId}`,
@@ -313,8 +328,21 @@ const handleProcess = (row) => {
   router.push(`/alarm-process/${row.id}`);
 };
 
-const viewProcessLog = (row) => {
-  console.log('查看处理记录:', row);
+
+const markAsProcessed = async (alarmId) => {
+  try {
+    const res = await alarmApi.handleAlarm(alarmId);
+    if (res.code === 200) {
+      ElMessage.success('报警已标记为已处理');
+      // 刷新数据
+      fetchAlarmData();
+    } else {
+      ElMessage.error(res.info || '处理失败');
+    }
+  } catch (error) {
+    console.error('处理报警失败:', error);
+    ElMessage.error('处理失败，请稍后重试');
+  }
 };
 </script>
 
@@ -322,23 +350,32 @@ const viewProcessLog = (row) => {
 .alarm-management {
   min-height: 100vh;
   background-color: #1a1c1e;
+  display: flex;
+  flex-direction: column;
 }
 
 .main-content {
   display: flex;
+  flex: 1;
   min-height: calc(100vh - 60px);
 }
 
 .main {
   flex: 1;
-  padding: 20px;
+  padding: 2%;
   background-color: #1a1c1e;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .content-section {
   background-color: #282b30;
   border-radius: 8px;
-  padding: 20px;
+  padding: 2%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 .section-header {
@@ -355,9 +392,24 @@ const viewProcessLog = (row) => {
 }
 
 .filter-section {
+  width: 100%;
+}
+
+.filter-container {
+  width: 100%;
+}
+
+.filter-items {
   display: flex;
   gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
+}
+
+.filter-buttons {
+  display: flex;
+  gap: 12px;
+  margin-left: 12px;
 }
 
 .filter-item {
@@ -366,9 +418,9 @@ const viewProcessLog = (row) => {
 
 .status-cards {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-  margin-bottom: 24px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2%;
+  margin-bottom: 20px;
 }
 
 .status-card {
@@ -378,6 +430,12 @@ const viewProcessLog = (row) => {
   display: flex;
   align-items: center;
   gap: 16px;
+  transition: all 0.3s ease;
+}
+
+.status-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .card-icon {
@@ -391,18 +449,17 @@ const viewProcessLog = (row) => {
 }
 
 .card-icon.warning {
-  background-color: rgba(250, 173, 20, 0.1);
-  color: #faad14;
-}
-
-.card-icon.processing {
-  background-color: rgba(24, 144, 255, 0.1);
-  color: #1890ff;
+  background-color: rgba(255, 77, 79, 0.1);
+  color: #ff4d4f;
 }
 
 .card-icon.completed {
   background-color: rgba(82, 196, 26, 0.1);
   color: #52c41a;
+}
+
+.card-content {
+  flex: 1;
 }
 
 .card-content h3 {
@@ -422,38 +479,41 @@ const viewProcessLog = (row) => {
 }
 
 :deep(.el-table) {
-  background-color: transparent !important;
+  background-color: transparent;
 }
 
-:deep(.el-table th) {
-  background-color: #1a1c1e !important;
-  border-bottom: 1px solid #303030;
-  color: #8c8c8c;
+:deep(.el-table__empty-block) {
+  background-color: #282b30;
+  min-height: 60px;
 }
 
-:deep(.el-table td) {
-  background-color: transparent !important;
-  border-bottom: 1px solid #303030;
-  color: #fff;
-}
-
-:deep(.el-table--enable-row-hover .el-table__body tr:hover > td) {
-  background-color: #1a1c1e !important;
+:deep(.el-table__empty-text) {
+  color: #909399;
 }
 
 .pagination-container {
+  padding-top: 20px;
   display: flex;
   justify-content: flex-end;
-  margin-top: 20px;
 }
 
-:deep(.el-pagination) {
-  --el-pagination-bg-color: transparent;
-  --el-pagination-text-color: #8c8c8c;
-  --el-pagination-button-color: #fff;
-  --el-pagination-button-bg-color: #1a1c1e;
-  --el-pagination-button-disabled-color: #606266;
-  --el-pagination-button-disabled-bg-color: #282b30;
-  --el-pagination-hover-color: var(--el-color-primary);
+@media screen and (max-width: 1200px) {
+  .filter-item {
+    width: 150px;
+  }
+}
+
+@media screen and (max-width: 768px) {
+  .status-cards {
+    grid-template-columns: 1fr;
+  }
+  
+  .filter-items {
+    flex-direction: column;
+  }
+  
+  .filter-item {
+    width: 100%;
+  }
 }
 </style>

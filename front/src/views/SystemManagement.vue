@@ -13,34 +13,51 @@
               <el-button type="primary" @click="addUser">
                 <el-icon><Plus /></el-icon>新增用户
               </el-button>
-              <el-button @click="batchDelete" :disabled="!selectedUsers.length">
+              <!-- <el-button @click="batchDelete" :disabled="!selectedUsers.length">
                 <el-icon><Delete /></el-icon>批量删除
-              </el-button>
+              </el-button> -->
             </div>
           </div>
 
           <div class="filter-section">
-            <el-input
-              v-model="searchKeyword"
-              placeholder="请输入用户名/姓名搜索"
-              class="filter-item"
-              clearable
-            >
-              <template #prefix>
-                <el-icon><Search /></el-icon>
-              </template>
-            </el-input>
-            <el-select v-model="roleFilter" placeholder="角色" class="filter-item" clearable>
-              <el-option label="管理员" value="admin" />
-              <el-option label="操作员" value="operator" />
-              <el-option label="普通用户" value="user" />
-            </el-select>
-            <el-select v-model="statusFilter" placeholder="状态" class="filter-item" clearable>
-              <el-option label="启用" value="active" />
-              <el-option label="禁用" value="inactive" />
-            </el-select>
-            <el-button type="primary" @click="query">查询</el-button>
-            <el-button @click="reset">重置</el-button>
+            <div class="filter-items">
+              <el-input
+                v-model="searchKeyword"
+                placeholder="输入用户名搜索"
+                class="filter-item"
+                clearable
+              >
+                <template #prefix>
+                  <el-icon><Search /></el-icon>
+                </template>
+              </el-input>
+              <el-select 
+                v-model="roleFilter" 
+                placeholder="角色" 
+                class="filter-item" 
+                clearable
+              >
+                <el-option label="全部" :value="-1" />
+                <!-- 管理员 -->
+                <el-option label="管理员" :value="1" />
+                <!-- 普通用户 -->
+                <el-option label="普通用户" :value="0" />
+              </el-select>
+              <el-select 
+                v-model="statusFilter" 
+                placeholder="状态" 
+                class="filter-item" 
+                clearable
+              >
+                <el-option label="全部" :value="-1" />
+                <el-option label="启用" :value="1" />
+                <el-option label="禁用" :value="0" />
+              </el-select>
+            </div>
+            <div class="filter-buttons">
+              <el-button type="primary" @click="query">查询</el-button>
+              <el-button @click="reset">重置</el-button>
+            </div>
           </div>
 
           <el-table 
@@ -49,16 +66,36 @@
             class="custom-table"
             @selection-change="handleSelectionChange"
           >
-            <el-table-column type="selection" width="55" />
-            <el-table-column type="index" label="序号" width="80" />
-            <el-table-column prop="username" label="用户名" />
-            <el-table-column prop="name" label="姓名" />
-            <el-table-column prop="role" label="角色">
+            <el-table-column 
+              type="selection" 
+              width="55" 
+            />
+            <el-table-column 
+              type="index" 
+              label="序号" 
+              width="80" 
+            />
+            <el-table-column 
+              prop="userId" 
+              label="用户ID" 
+              width="100"
+            />
+            <el-table-column 
+              prop="name" 
+              label="姓名" 
+            />
+            <el-table-column 
+              prop="phoneNumber" 
+              label="手机号" 
+            />
+            <el-table-column 
+              prop="role" 
+              label="角色"
+            >
               <template #default="{ row }">
                 <el-tag :type="getRoleType(row.role)">{{ row.role }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="department" label="所属部门" />
             <el-table-column prop="status" label="状态">
               <template #default="{ row }">
                 <el-tag :type="row.status === '启用' ? 'success' : 'info'">
@@ -66,7 +103,6 @@
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column prop="lastLogin" label="最后登录时间" />
             <el-table-column label="操作" width="250">
               <template #default="{ row }">
                 <el-button type="primary" link @click="editUser(row)">编辑</el-button>
@@ -78,7 +114,7 @@
                 >
                   {{ row.status === '启用' ? '禁用' : '启用' }}
                 </el-button>
-                <el-button type="danger" link @click="deleteUser(row)">删除</el-button>
+                <!-- <el-button type="danger" link @click="deleteUser(row)">删除</el-button> -->
               </template>
             </el-table-column>
           </el-table>
@@ -110,26 +146,16 @@
         :rules="userRules"
         label-width="100px"
       >
-        <el-form-item label="用户名" prop="username">
-          <el-input v-model="userForm.username" :disabled="dialogType === 'edit'" />
-        </el-form-item>
         <el-form-item label="姓名" prop="name">
           <el-input v-model="userForm.name" />
         </el-form-item>
-        <el-form-item label="密码" prop="password" v-if="dialogType === 'add'">
-          <el-input v-model="userForm.password" type="password" show-password />
+        <el-form-item label="手机号" prop="phoneNumber">
+          <el-input v-model="userForm.phoneNumber" :disabled="dialogType === 'edit'" />
         </el-form-item>
-        <el-form-item label="确认密码" prop="confirmPassword" v-if="dialogType === 'add'">
-          <el-input v-model="userForm.confirmPassword" type="password" show-password />
-        </el-form-item>
-        <el-form-item label="所属部门" prop="department">
-          <el-select v-model="userForm.department" placeholder="请选择部门">
-            <el-option
-              v-for="dept in departments"
-              :key="dept.value"
-              :label="dept.label"
-              :value="dept.value"
-            />
+        <el-form-item label="角色" prop="roleType">
+          <el-select v-model="userForm.roleType" placeholder="请选择角色">
+            <el-option label="普通用户" :value="0" />
+            <el-option label="管理员" :value="1" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -154,20 +180,9 @@
       >
         <el-form-item label="用户角色" prop="role">
           <el-select v-model="roleForm.role" placeholder="请选择角色">
-            <el-option label="管理员" value="管理员" />
-            <el-option label="操作员" value="操作员" />
-            <el-option label="普通用户" value="普通用户" />
+            <el-option :label="'管理员'" :value="1" />
+            <el-option :label="'普通用户'" :value="0" />
           </el-select>
-        </el-form-item>
-        <el-form-item label="权限范围">
-          <el-tree
-            ref="permissionTree"
-            :data="permissionList"
-            show-checkbox
-            node-key="id"
-            :default-checked-keys="roleForm.permissions"
-            :props="{ label: 'name' }"
-          />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -181,57 +196,31 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, computed, onBeforeUnmount } from 'vue';
 import { Plus, Delete, Search } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import CommonHeader from '@/components/CommonHeader.vue';
 import CommonSidebar from '@/components/CommonSidebar.vue';
 import CommonBreadcrumb from '@/components/CommonBreadcrumb.vue';
+import { userApi, systemApi } from '@/api';
 
 const currentTime = ref(new Date().toLocaleString());
 const theme = ref('dark');
 const isCollapse = ref(false);
 
 const searchKeyword = ref('');
-const roleFilter = ref('');
-const statusFilter = ref('');
+const roleFilter = ref(-1);  // -1 表示全部
+const statusFilter = ref(-1); // -1 表示全部
 const selectedUsers = ref([]);
 const currentPage = ref(1);
 const pageSize = ref(10);
 const total = ref(100);
 
-const userData = ref([
-  { 
-    username: 'admin',
-    name: '管理员',
-    role: '超级管理员',
-    department: '系统管理部',
-    status: '启用',
-    lastLogin: '2024-04-19 10:30:00'
-  },
-  { 
-    username: 'operator1',
-    name: '张三',
-    role: '操作员',
-    department: '运维部',
-    status: '启用',
-    lastLogin: '2024-04-19 09:15:00'
-  },
-  { 
-    username: 'user1',
-    name: '李四',
-    role: '普通用户',
-    department: '生产部',
-    status: '禁用',
-    lastLogin: '2024-04-18 17:30:00'
-  }
-]);
+const userData = ref([]);  // 清空初始数据，改为从API获取
 
 const getRoleType = (role) => {
   const types = {
-    '超级管理员': 'danger',
-    '管理员': 'warning',
-    '操作员': 'success',
+    '管理员': 'danger',
     '普通用户': 'info'
   };
   return types[role] || 'info';
@@ -245,26 +234,29 @@ const roleFormRef = ref(null);
 const permissionTree = ref(null);
 
 const userForm = reactive({
-  username: '',
+  userId: '',
   name: '',
+  phoneNumber: '',
   password: '',
   confirmPassword: '',
-  department: ''
+  roleType: 0  // 默认为普通用户
 });
 
 const roleForm = reactive({
   userId: '',
   role: '',
+  name: '',
+  phoneNumber: '',
   permissions: []
 });
 
 const userRules = {
-  username: [
-    { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 20, message: '长度在 3 到 20 个字符', trigger: 'blur' }
-  ],
   name: [
     { required: true, message: '请输入姓名', trigger: 'blur' }
+  ],
+  phoneNumber: [
+    { required: true, message: '请输入手机号', trigger: 'blur' },
+    // { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
@@ -282,17 +274,8 @@ const userRules = {
       },
       trigger: 'blur'
     }
-  ],
-  department: [
-    { required: true, message: '请选择部门', trigger: 'change' }
   ]
 };
-
-const departments = [
-  { label: '系统管理部', value: 'system' },
-  { label: '运维部', value: 'operation' },
-  { label: '生产部', value: 'production' }
-];
 
 const permissionList = [
   {
@@ -315,33 +298,73 @@ const permissionList = [
   }
 ];
 
-const query = async () => {
-  const filteredData = userData.value.filter(user => {
-    const matchKeyword = !searchKeyword.value || 
-      user.username.includes(searchKeyword.value) || 
-      user.name.includes(searchKeyword.value);
-    const matchRole = !roleFilter.value || user.role === roleFilter.value;
-    const matchStatus = !statusFilter.value || user.status === statusFilter.value;
-    return matchKeyword && matchRole && matchStatus;
-  });
-  
-  total.value = filteredData.length;
-  const start = (currentPage.value - 1) * pageSize.value;
-  const end = start + pageSize.value;
-  userData.value = filteredData.slice(start, end);
+// 定时器
+let dataTimer = null;
+const REFRESH_INTERVAL = 30000; // 30秒刷新一次
+
+// 获取用户列表数据
+const fetchUserList = async () => {
+  try {
+    const params = {
+      pageNo: currentPage.value,
+      pageSize: pageSize.value,
+      name: searchKeyword.value || undefined,
+      roleType: roleFilter.value === -1 ? undefined : roleFilter.value,
+      status: statusFilter.value === -1 ? undefined : statusFilter.value
+    };
+    
+    const res = await userApi.loadList(params);  // 使用 userApi 而不是 systemApi
+    if (res.code === 200) {
+      userData.value = res.data.list.map(user => {
+        console.log('处理用户数据:', user);  // 添加日志
+        return {
+          ...user,
+          role: user.roleType === 1 ? '管理员' : '普通用户',
+          status: user.status === 1 ? '启用' : '禁用'
+        };
+      });
+      total.value = res.data.pageTotal;
+      currentPage.value = res.data.pageNo;
+      pageSize.value = res.data.pageSize;
+    } else {
+      ElMessage.error(res.info || '获取用户列表失败');
+    }
+  } catch (error) {
+    console.error('获取用户列表失败:', error);
+    ElMessage.error('获取用户列表失败');
+  }
 };
 
-const resetUserForm = () => {
-  if (userFormRef.value) {
-    userFormRef.value.resetFields();
+// 开始定时刷新
+const startAutoRefresh = () => {
+  // 清除可能存在的旧定时器
+  stopAutoRefresh();
+
+  // 设置新的定时器
+  dataTimer = window.setInterval(fetchUserList, REFRESH_INTERVAL);
+};
+
+// 停止定时刷新
+const stopAutoRefresh = () => {
+  if (dataTimer) {
+    clearInterval(dataTimer);
+    dataTimer = null;
   }
-  Object.assign(userForm, {
-    username: '',
-    name: '',
-    password: '',
-    confirmPassword: '',
-    department: ''
-  });
+};
+
+// 查询方法
+const query = () => {
+  fetchUserList();
+};
+
+// 重置方法
+const reset = () => {
+  searchKeyword.value = '';
+  roleFilter.value = -1;
+  statusFilter.value = -1;
+  currentPage.value = 1;
+  pageSize.value = 10;
+  query();
 };
 
 const addUser = () => {
@@ -354,11 +377,22 @@ const editUser = (row) => {
   dialogType.value = 'edit';
   resetUserForm();
   Object.assign(userForm, {
-    username: row.username,
+    userId: row.userId,
     name: row.name,
-    department: row.department
+    phoneNumber: row.phoneNumber,
+    roleType: row.role === '管理员' ? 1 : 0
   });
   userDialogVisible.value = true;
+};
+
+const resetUserForm = () => {
+  Object.assign(userForm, {
+    name: '',
+    phoneNumber: '',
+    password: '',
+    confirmPassword: '',
+    roleType: 0
+  });
 };
 
 const submitUserForm = async () => {
@@ -367,28 +401,28 @@ const submitUserForm = async () => {
   await userFormRef.value.validate(async (valid) => {
     if (valid) {
       try {
-        if (dialogType.value === 'add') {
-          userData.value.push({
-            ...userForm,
-            role: '普通用户',
-            status: '启用',
-            lastLogin: '-'
-          });
-          ElMessage.success('添加用户成功');
-        } else {
-          const index = userData.value.findIndex(u => u.username === userForm.username);
-          if (index !== -1) {
-            userData.value[index] = {
-              ...userData.value[index],
-              name: userForm.name,
-              department: userForm.department
-            };
-          }
-          ElMessage.success('更新用户成功');
+        const userData = {
+          name: userForm.name,
+          phoneNumber: userForm.phoneNumber,
+          roleType: userForm.roleType
+        };
+
+        // Only include userId for edit operations
+        if (dialogType.value === 'edit' && userForm.userId) {
+          userData.userId = userForm.userId;
         }
-        userDialogVisible.value = false;
-        query();
+
+        const res = await userApi.update(userData);
+
+        if (res.code === 200) {
+          ElMessage.success(dialogType.value === 'add' ? '添加用户成功' : '更新用户成功');
+          userDialogVisible.value = false;
+          query();
+        } else {
+          ElMessage.error(res.info || '操作失败');
+        }
       } catch (error) {
+        console.error('操作失败:', error);
         ElMessage.error('操作失败');
       }
     }
@@ -396,39 +430,52 @@ const submitUserForm = async () => {
 };
 
 const changeRole = (row) => {
-  roleForm.userId = row.username;
-  roleForm.role = row.role;
-  roleForm.permissions = [11, 21];
+  roleForm.userId = row.userId;  // 设置用户ID
+  roleForm.role = row.role === '管理员' ? 1 : 0;  // 设置当前角色
+  roleForm.name = row.name;  // 保存用户名
+  roleForm.phoneNumber = row.phoneNumber;  // 保存手机号
   roleDialogVisible.value = true;
 };
 
 const submitRoleForm = async () => {
   try {
-    const checkedNodes = permissionTree.value.getCheckedNodes();
-    const permissions = checkedNodes.map(node => node.id);
-    
-    const index = userData.value.findIndex(u => u.username === roleForm.userId);
-    if (index !== -1) {
-      userData.value[index].role = roleForm.role;
+    const res = await userApi.update({
+      userId: roleForm.userId,
+      name: roleForm.name,
+      phoneNumber: roleForm.phoneNumber,
+      roleType: roleForm.role
+    });
+
+    if (res.code === 200) {
+      ElMessage.success('权限设置成功');
+      roleDialogVisible.value = false;
+      query();  // 刷新列表
+    } else {
+      ElMessage.error(res.info || '设置失败');
     }
-    
-    ElMessage.success('权限设置成功');
-    roleDialogVisible.value = false;
-    query();
   } catch (error) {
+    console.error('设置失败:', error);
     ElMessage.error('设置失败');
   }
 };
 
 const toggleUserStatus = async (row) => {
   try {
-    const newStatus = row.status === '启用' ? '禁用' : '启用';
-    const index = userData.value.findIndex(u => u.username === row.username);
-    if (index !== -1) {
-      userData.value[index].status = newStatus;
+    const res = await userApi.update({
+      userId: row.userId,
+      phoneNumber: row.phoneNumber,
+      status: row.status === '启用' ? 0 : 1
+    });
+
+    if (res.code === 200) {
+      const newStatus = row.status === '启用' ? '禁用' : '启用';
+      ElMessage.success(`${newStatus}成功`);
+      query();
+    } else {
+      ElMessage.error(res.info || '操作失败');
     }
-    ElMessage.success(`${newStatus}成功`);
   } catch (error) {
+    console.error('操作失败:', error);
     ElMessage.error('操作失败');
   }
 };
@@ -445,37 +492,16 @@ const deleteUser = async (row) => {
       }
     );
     
-    userData.value = userData.value.filter(u => u.username !== row.username);
-    ElMessage.success('删除成功');
-  } catch (error) {
-    if (error !== 'cancel') {
-      ElMessage.error('删除失败');
+    const res = await userApi.delete(row.phoneNumber);
+    if (res.code === 200) {
+      ElMessage.success('删除成功');
+      query();
+    } else {
+      ElMessage.error(res.info || '删除失败');
     }
-  }
-};
-
-const batchDelete = async () => {
-  if (!selectedUsers.value.length) {
-    ElMessage.warning('请选择要删除的用户');
-    return;
-  }
-  
-  try {
-    await ElMessageBox.confirm(
-      `确定要删除选中的 ${selectedUsers.value.length} 个用户吗？此操作不可恢复`,
-      '警告',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    );
-    
-    const usernames = selectedUsers.value.map(u => u.username);
-    userData.value = userData.value.filter(u => !usernames.includes(u.username));
-    ElMessage.success('批量删除成功');
   } catch (error) {
     if (error !== 'cancel') {
+      console.error('删除失败:', error);
       ElMessage.error('删除失败');
     }
   }
@@ -483,12 +509,6 @@ const batchDelete = async () => {
 
 const handleSelectionChange = (val) => {
   selectedUsers.value = val;
-};
-
-const reset = () => {
-  searchKeyword.value = '';
-  roleFilter.value = '';
-  statusFilter.value = '';
 };
 
 const handleSizeChange = (val) => {
@@ -501,8 +521,25 @@ const handleCurrentChange = (val) => {
   query();
 };
 
+// 添加计算属性来处理显示值
+const roleDisplayValue = computed(() => {
+  if (roleFilter.value === -1) return '';
+  return roleFilter.value === 1 ? '管理员' : '普通用户';
+});
+
+const statusDisplayValue = computed(() => {
+  if (statusFilter.value === -1) return '';
+  return statusFilter.value === 1 ? '启用' : '禁用';
+});
+
 onMounted(() => {
-  query();
+  fetchUserList();
+  startAutoRefresh();
+});
+
+// 组件卸载时清理定时器
+onBeforeUnmount(() => {
+  stopAutoRefresh();
 });
 </script>
 
@@ -549,9 +586,20 @@ onMounted(() => {
 
 .filter-section {
   display: flex;
-  gap: 12px;
+  justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  width: 100%;
+}
+
+.filter-items {
+  display: flex;
+  gap: 12px;
+}
+
+.filter-buttons {
+  display: flex;
+  gap: 12px;
 }
 
 .filter-item {

@@ -1,12 +1,21 @@
 /*
  * @Author: Fhx0902 YJX040124@outlook.com
+ * @Date: 2025-04-19 23:08:03
+ * @LastEditors: Fhx0902 YJX040124@outlook.com
+ * @LastEditTime: 2025-05-03 12:13:20
+ * @FilePath: \front\src\router\index.ts
+ * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
+ */
+/*
+ * @Author: Fhx0902 YJX040124@outlook.com
  * @Date: 2025-04-18 13:39:54
  * @LastEditors: Fhx0902 YJX040124@outlook.com
- * @LastEditTime: 2025-04-30 19:16:57
+ * @LastEditTime: 2025-05-02 11:08:59
  * @FilePath: \front\src\router\index.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 import { createRouter, createWebHistory, RouteRecordRaw } from 'vue-router';
+import { useUserStore } from '@/stores/user';
 import Home from '@/views/Home.vue';
 import Workspace from '@/views/Workspace.vue';
 import StatusMonitoring from '@/views/StatusMonitoring.vue';
@@ -14,12 +23,8 @@ import AlarmManagement from '@/views/AlarmManagement.vue';
 import ShutdownRecord from '@/views/ShutdownRecord.vue';
 import SystemManagement from '@/views/SystemManagement.vue';
 import Login from '@/views/Login.vue';
-import Admin from '@/views/Admin.vue';
+import { ElMessage } from 'element-plus';
 
-interface RouteMeta {
-  requiresAuth: boolean;
-  [key: string]: unknown;
-}
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -66,13 +71,7 @@ const routes: Array<RouteRecordRaw> = [
     path: '/system-management', 
     name: '系统管理', 
     component: SystemManagement,
-    meta: { requiresAuth: true }
-  },
-  { 
-    path: '/admin', 
-    name: '管理员', 
-    component: Admin,
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, requiresAdmin: true }
   },
   {
     path: '/device-detail/:id',
@@ -162,13 +161,24 @@ const router = createRouter({
 
 // // 路由守卫
 // router.beforeEach((to, from, next) => {
-//   const isAuthenticated = localStorage.getItem('token'); // 检查是否已登录
+//   const userStore = useUserStore();
+//   const isAuthenticated = userStore.isLoggedIn();
   
+//   // 需要认证但未登录
 //   if (to.meta.requiresAuth && !isAuthenticated) {
 //     next('/login');
-//   } else if (to.path === '/login' && isAuthenticated) {
+//   } 
+//   // 需要管理员权限但不是管理员
+//   else if (to.meta.requiresAdmin && !userStore.isAdmin()) {
+//     ElMessage.error('您没有管理员权限访问该页面');
 //     next('/home');
-//   } else {
+//   }
+//   // 已登录用户访问登录页
+//   else if (to.path === '/login' && isAuthenticated) {
+//     next('/home');
+//   } 
+//   // 其他情况正常放行
+//   else {
 //     next();
 //   }
 // });

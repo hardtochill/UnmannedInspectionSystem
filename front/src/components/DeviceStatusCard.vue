@@ -25,7 +25,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
-import type { DeviceStatus } from '@/api/types';
+// import type { DeviceStatus } from '@/api/types';
 
 const props = defineProps<{
   device: DeviceStatus;

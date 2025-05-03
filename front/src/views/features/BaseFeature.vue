@@ -44,11 +44,12 @@
             </div>
 
             <!-- 检测结果展示 -->
-            <div v-if="result" class="result-section">
+            <div class="result-section">
               <h3>检测结果</h3>
               <slot name="result" :result="result">
                 <!-- 默认结果展示 -->
-                <pre class="result-content">{{ JSON.stringify(result, null, 2) }}</pre>
+                <pre v-if="result" class="result-content">{{ JSON.stringify(result, null, 2) }}</pre>
+                <div v-else class="empty-result">请上传并处理图片</div>
               </slot>
             </div>
           </div>
@@ -78,6 +79,7 @@ const isCollapse = ref(false);
 const imageUrl = ref('');
 const detecting = ref(false);
 const result = ref(null);
+const originalFile = ref(null);
 
 // 面包屑路径
 const breadcrumbPaths = computed(() => [
@@ -87,26 +89,46 @@ const breadcrumbPaths = computed(() => [
 ]);
 
 // 处理文件改变
-const handleChange = (file: File) => {
-  const isImage = file.type.startsWith('image/');
-  const isLt5M = file.size / 1024 / 1024 < 5;
-
-  if (!isImage) {
+const handleChange = (uploadFile: any) => {
+  // console.log('上传组件传入的对象:', uploadFile);
+  
+  // Element Plus上传组件会传入有raw属性的对象
+  const file = uploadFile.raw;
+  
+  if (!file) {
+    // console.error('未找到文件对象，上传组件传入:', uploadFile);
+    ElMessage.error('文件上传失败');
+    return;
+  }
+  
+  // console.log('获取到的文件对象:', file);
+  
+  // 校验是否为图片
+  if (!file.type || !file.type.startsWith('image/')) {
     ElMessage.error('只能上传图片文件！');
     return;
   }
-  if (!isLt5M) {
-    ElMessage.error('图片大小不能超过 5MB！');
+  
+  // 校验是否为JPG或PNG
+  if (!['image/jpeg', 'image/jpg', 'image/png'].includes(file.type)) {
+    ElMessage.error('只支持JPG或PNG格式的图片！');
     return;
   }
 
+  // 保存原始文件对象
+  originalFile.value = file;
+  
   // 创建预览URL
-  imageUrl.value = URL.createObjectURL(file.raw);
+  imageUrl.value = URL.createObjectURL(file);
+  
+  // 显示上传成功提示
+  ElMessage.success('图片已准备好，请点击"开始检测"按钮');
 };
 
 // 移除图片
 const handleRemove = () => {
   imageUrl.value = '';
+  originalFile.value = null;
   result.value = null;
 };
 
@@ -114,22 +136,47 @@ const handleRemove = () => {
 const handleDetect = async () => {
   detecting.value = true;
   try {
-    // 模拟API调用
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    result.value = {
-      status: 'success',
-      message: '检测完成',
-      data: {
-        // 具体结果由子组件通过插槽自定义展示
-      }
-    };
-    ElMessage.success('检测完成');
+    if (!imageUrl.value || !originalFile.value) {
+      ElMessage.error('请先上传图片');
+      return;
+    }
+
+    // console.log('准备发送文件:', originalFile.value);
+    // console.log('文件详情:', {
+    //   name: originalFile.value.name || '未知',
+    //   size: originalFile.value.size || 0,
+    //   type: originalFile.value.type || '未知'
+    // });
+    
+    ElMessage.info('正在处理图片，请稍候...');
+    
+    // 传递原始文件对象给处理函数
+    const detectResult = await emit('detect', originalFile.value);
+    
+    result.value = detectResult;
+
+    if (result.value && result.value.status === 'success') {
+      ElMessage.success('检测完成');
+    } else if (result.value) {
+      ElMessage.warning(result.value.message || '检测结果异常');
+    }
   } catch (error) {
-    ElMessage.error('检测失败');
+    // console.error('检测失败:', error);
+    ElMessage.error('检测失败: ' + (error instanceof Error ? error.message : String(error)));
+    result.value = {
+      status: 'error',
+      message: '检测失败',
+      data: {}
+    };
   } finally {
     detecting.value = false;
   }
 };
+
+// 定义事件
+const emit = defineEmits<{
+  (e: 'detect', file: File): Promise<any>;
+}>();
 
 // 更新时间
 setInterval(() => {
@@ -255,5 +302,14 @@ setInterval(() => {
   font-family: monospace;
   margin: 0;
   white-space: pre-wrap;
+}
+
+.empty-result {
+  background-color: #282b30;
+  border-radius: 4px;
+  padding: 16px;
+  color: #8c8c8c;
+  text-align: center;
+  font-size: 14px;
 }
 </style> 

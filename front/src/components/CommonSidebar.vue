@@ -2,7 +2,7 @@
  * @Author: Fhx0902 YJX040124@outlook.com
  * @Date: 2025-04-18 23:01:37
  * @LastEditors: Fhx0902 YJX040124@outlook.com
- * @LastEditTime: 2025-04-29 17:48:49
+ * @LastEditTime: 2025-05-01 17:18:49
  * @FilePath: \front\src\components\CommonSidebar.vue
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -61,7 +61,7 @@ const singleMenuItems = ref([
   { path: '/workspace', label: '工作台', icon: 'HomeFilled' },
   { path: '/status-monitoring', label: '状态监控', icon: 'Monitor' },
   { path: '/alarm-management', label: '报警管理', icon: 'Bell' },
-  { path: '/shutdown-record', label: '开关机记录', icon: 'Clock' },
+  // { path: '/shutdown-record', label: '开关机记录', icon: 'Clock' },
   { path: '/system-management', label: '系统管理', icon: 'Setting' }
 ]);
 
