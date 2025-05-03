@@ -206,15 +206,30 @@ const handleCommand = async (command) => {
             type: 'warning'
           }
         );
+         // 调用后端登出接口，添加userId参数
+         const userId = userStore.currentUser?.userId;
+        // 直接传递userId值，而不是包装成对象
+        const res = await accountApi.logout(userId);
+        if (res.code === 401) {
+          ElMessage.warning(res.info || '登录已过期');
+          // 清除用户状态
+          userStore.clearUser();
+          // 清除localStorage中的持久化数据
+          localStorage.removeItem('user');
+          // 跳转到登录页
+          router.push('/login');
+          return;
+        }
         
-        // 清除用户状态
+        // 处理其他错误状态
+        if (res.code !== 200) {
+          throw new Error(res.info || '退出失败');
+        }
+        
+        // 正常退出流程
         userStore.clearUser();
-        // 清除localStorage中的持久化数据
         localStorage.removeItem('user');
-        
-        // 跳转到登录页
         router.push('/login');
-        
         ElMessage.success('已退出登录');
       } catch (error) {
         if (error !== 'cancel') {

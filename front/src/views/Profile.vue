@@ -2,7 +2,7 @@
  * @Author: Fhx0902 YJX040124@outlook.com
  * @Date: 2025-04-21 20:48:28
  * @LastEditors: Fhx0902 YJX040124@outlook.com
- * @LastEditTime: 2025-05-02 17:59:22
+ * @LastEditTime: 2025-05-03 18:05:08
  * @FilePath: \front\src\views\Profile.vue
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -155,6 +155,7 @@ import CommonSidebar from '@/components/CommonSidebar.vue';
 import CommonBreadcrumb from '@/components/CommonBreadcrumb.vue';
 import { userApi, accountApi } from '@/api';
 import { useUserStore } from '@/stores/user';
+import md5 from 'crypto-js/md5';
 
 const userStore = useUserStore();
 
@@ -321,10 +322,14 @@ const savePassword = async () => {
   await formRef.value.validate(async (valid) => {
     if (valid) {
       try {
+        // 对新旧密码进行md5加密
+        const encryptedOldPassword = md5(userForm.oldPassword).toString();
+        const encryptedNewPassword = md5(userForm.newPassword).toString();
+        
         const response = await accountApi.changePassword({
           userId: Number(userForm.username), // 确保转换为数字
-          oldPassword: userForm.oldPassword,
-          newPassword: userForm.newPassword
+          oldPassword: encryptedOldPassword,
+          newPassword: encryptedNewPassword
         });
 
         if (response.code === 200) {

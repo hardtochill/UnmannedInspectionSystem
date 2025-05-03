@@ -1,50 +1,55 @@
+<!--
+ * @Author: Fhx0902 YJX040124@outlook.com
+ * @Date: 2025-05-03 17:10:15
+ * @LastEditors: Fhx0902 YJX040124@outlook.com
+ * @LastEditTime: 2025-05-03 17:25:59
+ * @Description: 设备详情页
+-->
 <template>
   <div class="device-detail dark-theme">
     <CommonHeader :currentTime="currentTime" :theme="theme" @toggleTheme="toggleTheme" />
     <div class="main-content">
       <CommonSidebar :isCollapse="isCollapse" />
       <div class="main">
-        <CommonBreadcrumb :paths="[
-          {name: '首页', path: '/'}, 
-          {name: fromPath.value === '/alarm-management' ? '报警管理' : '状态监控', 
-           path: fromPath.value},
-          {name: deviceInfo.name, path: ''}
-        ]" />
+        <CommonBreadcrumb :paths="breadcrumbPaths" />
         
-        <div class="content-section">
+        <div class="content-section" v-loading="loading">
           <div class="detail-layout">
             <!-- 左侧设备信息 -->
             <div class="device-info">
               <div class="info-header">
-                <h2>{{ deviceInfo.name }}</h2>
-                <el-tag :type="tagType" size="large">{{ statusText }}</el-tag>
+                <h2>{{ deviceDetail?.deviceName || '设备详情' }}</h2>
+                <el-tag :type="deviceDetail?.measuringPointStatus === 0 ? 'success' : 'danger'">
+                  {{ deviceDetail?.measuringPointStatus === 0 ? '正常' : '异常' }}
+                </el-tag>
               </div>
-              
+
               <div class="device-image">
-                <img :src="deviceInfo.imageUrl || defaultImage" :alt="deviceInfo.name">
+                <img :src="deviceDetail?.base64Image" :alt="deviceDetail?.deviceName" v-if="deviceDetail?.base64Image">
+                <el-empty description="暂无图片" v-else></el-empty>
               </div>
-              
+
               <div class="info-content">
                 <div class="info-item">
-                  <span class="label">设备类型：</span>
-                  <span class="value">{{ deviceInfo.type }}</span>
+                  <span class="label">设备名称：</span>
+                  <span class="value">{{ deviceDetail?.deviceName }}</span>
                 </div>
                 <div class="info-item">
-                  <span class="label">安装位置：</span>
-                  <span class="value">{{ deviceInfo.location }}</span>
+                  <span class="label">所属车间：</span>
+                  <span class="value">{{ deviceDetail?.workshopName }}</span>
+                </div>
+                <div class="info-item">
+                  <span class="label">测点名称：</span>
+                  <span class="value">{{ deviceDetail?.mpName }}</span>
                 </div>
                 <div class="info-item">
                   <span class="label">最后更新：</span>
-                  <span class="value">{{ deviceInfo.lastUpdate }}</span>
-                </div>
-                <div class="info-item">
-                  <span class="label">设备描述：</span>
-                  <span class="value">{{ deviceInfo.description }}</span>
+                  <span class="value">{{ deviceDetail?.lastUpdateTime }}</span>
                 </div>
               </div>
             </div>
 
-            <!-- 右侧报警日志 -->
+            <!-- 右侧报警记录 -->
             <div class="alarm-logs">
               <div class="logs-header">
                 <h3>报警记录</h3>
@@ -53,39 +58,21 @@
                 </el-tag>
               </div>
 
-              <div class="logs-content">
-                <div v-for="log in activeAlarms" :key="log.id" class="log-item" :class="{'is-active': log.status === 'pending'}">
-                  <div class="log-header">
-                    <el-tag :type="getAlarmLevelType(log.level)" size="small">
-                      {{ getAlarmLevelText(log.level) }}
+              <el-table :data="deviceDetail?.mpAlarmList || []" style="width: 100%" size="small">
+                <el-table-column prop="alarmTime" label="报警时间" width="180" />
+                <el-table-column prop="typeString" label="报警状态" width="120">
+                  <template #default="{ row }">
+                    <el-tag type="danger">{{ row.typeString }}</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="status" label="处理状态" width="120">
+                  <template #default="{ row }">
+                    <el-tag :type="row.status === 0 ? 'warning' : 'success'">
+                      {{ row.status === 0 ? '未处理' : '已处理' }}
                     </el-tag>
-                    <span class="log-time">{{ log.time }}</span>
-                  </div>
-                  <div class="log-message">{{ log.message }}</div>
-                  <div class="log-actions" v-if="log.status === 'pending'">
-                    <el-button type="primary" link @click="handleAlarm(log)">处理报警</el-button>
-                  </div>
-                </div>
-
-                <el-empty v-if="activeAlarms.length === 0" description="暂无未处理的报警记录" />
-              </div>
-
-              <!-- 添加报警历史记录 -->
-              <div class="alarm-history" v-if="alarmHistory.length">
-                <h4>历史报警记录</h4>
-                <el-table :data="alarmHistory" style="width: 100%" size="small">
-                  <el-table-column prop="time" label="时间" width="160" />
-                  <el-table-column prop="type" label="类型" width="120" />
-                  <el-table-column prop="message" label="描述" />
-                  <el-table-column prop="status" label="状态" width="100">
-                    <template #default="{ row }">
-                      <el-tag :type="getStatusType(row.status)" size="small">
-                        {{ row.status }}
-                      </el-tag>
-                    </template>
-                  </el-table-column>
-                </el-table>
-              </div>
+                  </template>
+                </el-table-column>
+              </el-table>
             </div>
           </div>
         </div>
@@ -96,84 +83,58 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import CommonHeader from '@/components/CommonHeader.vue';
 import CommonSidebar from '@/components/CommonSidebar.vue';
 import CommonBreadcrumb from '@/components/CommonBreadcrumb.vue';
-import type { DeviceStatus, AlarmRecord } from '@/api/types';
+import { mpApi } from '@/api';
+import { ElMessage } from 'element-plus';
 
 const route = useRoute();
-const router = useRouter();
-const deviceId = route.params.id as string;
 const currentTime = ref(new Date().toLocaleString());
 const theme = ref('dark');
 const isCollapse = ref(false);
-const defaultImage = '/images/devices/default.jpg';
+const loading = ref(false);
+const deviceDetail = ref(null);
 
-// 设备信息
-const deviceInfo = ref<DeviceStatus>({
-  id: '',
-  name: '',
-  status: 'normal',
-  location: '',
-  lastUpdate: '',
-  type: '',
-  description: ''
-});
+const breadcrumbPaths = computed(() => [
+  { name: '首页', path: '/' },
+  { name: '状态监控', path: '/status-monitoring' },
+  { name: '设备详情', path: '' }
+]);
 
-// 报警记录
-const alarmLogs = ref<AlarmRecord[]>([]);
-
-// 获取未处理的报警记录
+// 计算活跃的报警数量
 const activeAlarms = computed(() => {
-  return alarmLogs.value.filter(log => log.status === 'pending');
+  if (!deviceDetail.value?.mpAlarmList) return [];
+  return deviceDetail.value.mpAlarmList.filter(alarm => alarm.status === 0);
 });
 
-// 状态相关
-const statusText = computed(() => {
-  const statusMap = {
-    alarm: '报警',
-    warning: '预警',
-    normal: '正常',
-    offline: '离线',
-    shutdown: '停机'
-  };
-  return statusMap[deviceInfo.value.status];
-});
-
-const tagType = computed(() => {
-  const typeMap = {
-    alarm: 'danger',
-    warning: 'warning',
-    normal: 'success',
-    offline: 'info',
-    shutdown: ''
-  };
-  return typeMap[deviceInfo.value.status];
-});
-
-// 报警等级相关
-const getAlarmLevelType = (level: string) => {
-  const types: Record<string, string> = {
-    error: 'danger',
-    warning: 'warning',
-    info: 'info'
-  };
-  return types[level] || 'info';
-};
-
-const getAlarmLevelText = (level: string) => {
-  const texts: Record<string, string> = {
-    error: '严重',
-    warning: '警告',
-    info: '提示'
-  };
-  return texts[level] || '未知';
-};
-
-// 处理报警
-const handleAlarm = (log: AlarmRecord) => {
-  router.push(`/alarm-process/${log.id}`);
+const getDeviceDetail = async () => {
+  loading.value = true;
+  try {
+    const mpId = Number(route.params.id);
+    console.log('Route params:', route.params);
+    console.log('Parsed mpId:', mpId);
+    const res = await mpApi.getDetail({ mpId });
+    console.log('API request params:', { mpId });
+    console.log('API response:', res);
+    if (res.code === 200) {
+      // 处理base64图片
+      if (res.data.base64Image) {
+        res.data.base64Image = res.data.base64Image.startsWith('data:image')
+          ? res.data.base64Image
+          : `data:image/jpeg;base64,${res.data.base64Image}`;
+      }
+      deviceDetail.value = res.data;
+    } else {
+      ElMessage.error(res.info || '获取设备详情失败');
+    }
+  } catch (error) {
+    console.error('获取设备详情失败:', error);
+    ElMessage.error('获取设备详情失败');
+  } finally {
+    loading.value = false;
+  }
 };
 
 const toggleTheme = () => {
@@ -186,60 +147,8 @@ const toggleTheme = () => {
   }
 };
 
-const alarmHistory = ref([
-  {
-    id: '1',
-    time: '2024-04-19 10:30:00',
-    type: '温度异常',
-    message: '设备温度超过阈值（85℃）',
-    status: '已处理'
-  },
-  {
-    id: '2',
-    time: '2024-04-18 15:20:00',
-    type: '压力异常',
-    message: '设备压力超出正常范围',
-    status: '已处理'
-  }
-]);
-
-// 添加来源路径记录
-const fromPath = ref(route.query.from?.toString() || '/status-monitoring');
-
-const getStatusType = (status: string) => {
-  const types: Record<string, string> = {
-    '待处理': 'danger',
-    '处理中': 'warning',
-    '已处理': 'success'
-  };
-  return types[status] || 'info';
-};
-
-onMounted(async () => {
-  // 获取设备信息
-  // 这里需要替换为实际的API调用
-
-  // 模拟获取报警记录
-  alarmLogs.value = [
-    {
-      id: '1',
-      deviceId: deviceId,
-      deviceName: deviceInfo.value.name,
-      level: 'error',
-      message: '设备温度超过阈值（85℃）',
-      time: '2024-12-04 16:15:00',
-      status: 'pending'
-    },
-    {
-      id: '2',
-      deviceId: deviceId,
-      deviceName: deviceInfo.value.name,
-      level: 'warning',
-      message: '设备振动异常',
-      time: '2024-12-04 16:10:00',
-      status: 'pending'
-    }
-  ];
+onMounted(() => {
+  getDeviceDetail();
 });
 </script>
 
@@ -268,7 +177,7 @@ onMounted(async () => {
 
 .detail-layout {
   display: grid;
-  grid-template-columns: 1fr 400px;
+  grid-template-columns: 1fr 1fr;
   gap: 24px;
 }
 
@@ -295,16 +204,20 @@ onMounted(async () => {
 
 .device-image {
   width: 100%;
-  height: 400px;
+  height: 300px;
   border-radius: 8px;
   overflow: hidden;
   margin-bottom: 24px;
+  background-color: #282b30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .device-image img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .info-content {
@@ -326,7 +239,7 @@ onMounted(async () => {
   color: #fff;
 }
 
-/* 右侧报警日志样式 */
+/* 右侧报警记录样式 */
 .alarm-logs {
   background-color: #1a1c1e;
   border-radius: 8px;
@@ -347,42 +260,22 @@ onMounted(async () => {
   color: #fff;
 }
 
-.logs-content {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+:deep(.el-table) {
+  --el-table-bg-color: transparent;
+  --el-table-tr-bg-color: transparent;
+  --el-table-border-color: #303030;
+  --el-table-header-bg-color: #282b30;
+  --el-table-header-text-color: #fff;
+  --el-table-text-color: #fff;
 }
 
-.log-item {
+:deep(.el-table th.el-table__cell) {
   background-color: #282b30;
-  border-radius: 8px;
-  padding: 16px;
-  border: 1px solid #303030;
 }
 
-.log-item.is-active {
-  border-left: 4px solid #ff4d4f;
-}
-
-.log-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
-}
-
-.log-time {
-  color: #8c8c8c;
-  font-size: 12px;
-}
-
-.log-message {
-  color: #fff;
-  margin-bottom: 12px;
-}
-
-.log-actions {
-  display: flex;
-  justify-content: flex-end;
+:deep(.el-table--border .el-table__inner-wrapper::after),
+:deep(.el-table--border::after),
+:deep(.el-table--border::before) {
+  background-color: #303030;
 }
 </style> 

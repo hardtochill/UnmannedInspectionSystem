@@ -2,7 +2,7 @@
  * @Author: Fhx0902 YJX040124@outlook.com
  * @Date: 2025-04-28 15:41:30
  * @LastEditors: Fhx0902 YJX040124@outlook.com
- * @LastEditTime: 2025-05-03 12:58:50
+ * @LastEditTime: 2025-05-03 17:02:46
  * @FilePath: \front\src\views\features\PipeLeak.vue
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -70,7 +70,7 @@ const handleDetection = async (file: File) => {
     // console.log('FormData已创建，字段名为image');
     
     // 直接使用detectApi发送请求
-    const result = await detectApi.detect(formData);
+    const result = await detectApi.detect(formData, 'best');
     
     // console.log('检测结果:', result);
     
@@ -111,24 +111,53 @@ const handleDetection = async (file: File) => {
 </script>
 
 <style scoped>
-.leak-result {
+.feature-result {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
-
 .result-item {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-
 .label {
   color: #8c8c8c;
   min-width: 80px;
 }
-
 .value {
   color: #fff;
+}
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+}
+.loading-icon {
+  font-size: 48px;
+  color: #409eff;
+  animation: rotate 2s linear infinite;
+}
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.loading-container p {
+  margin-top: 16px;
+  color: #8c8c8c;
+}
+.result-image-container {
+  margin-bottom: 20px;
+}
+.result-image-container h4 {
+  color: #fff;
+  margin-bottom: 10px;
+}
+.result-image {
+  max-width: 100%;
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
 }
 </style> 

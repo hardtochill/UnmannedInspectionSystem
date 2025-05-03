@@ -2,7 +2,7 @@
  * @Author: Fhx0902 YJX040124@outlook.com
  * @Date: 2025-04-18 13:49:49
  * @LastEditors: Fhx0902 YJX040124@outlook.com
- * @LastEditTime: 2025-05-03 12:58:24
+ * @LastEditTime: 2025-05-03 17:21:29
  * @FilePath: \front\src\views\StatusMonitoring.vue
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -56,15 +56,17 @@
           <div class="device-grid">
             <DeviceStatusCard
               v-for="device in deviceList"
-              :key="device.id"
+              :key="device.mpId"
               :device="{
+                mpId: device.mpId,
                 name: `${device.deviceName}-${device.measuringPointName}`,
-                pointName: `${device.workshopName || device.workshop}`,
-                status: device.measuringPointStatus === 0 ? 'normal' : 'alarm',
-                statusType: device.measuringPointStatus === 0 ? 'success' : 'danger',
-                workshop: device.workshopName || device.workshop,
                 description: `${device.workshopName || device.workshop}`,
-                imageUrl: device.image || '/images/devices/default.jpg'
+                lastUpdate: new Date().toLocaleString(),
+                status: device.measuringPointStatus === 0 ? 'normal' : 'alarm',
+                imageUrl: device.base64Image ? (device.base64Image.startsWith('data:image') 
+                  ? device.base64Image 
+                  : `data:image/jpeg;base64,${device.base64Image}`)
+                  : '/images/devices/default.jpg'
               }"
             />
           </div>
@@ -130,7 +132,9 @@ const loadMeasurementPoints = async () => {
 
     const res = await mpApi.loadList(params);
     if (res.code === 200) {
+      console.log('API Response:', res.data);
       deviceList.value = res.data.list.map(item => {
+        console.log('Processing device item:', item);
         const base64Image = item.base64Image 
           ? (item.base64Image.startsWith('data:image') 
             ? item.base64Image 
@@ -144,7 +148,7 @@ const loadMeasurementPoints = async () => {
           image: base64Image
         };
       });
-      console.log(deviceList.value)
+      console.log('Processed device list:', deviceList.value);
       total.value = res.data.pageTotal;
       currentPage.value = res.data.pageNo;
       pageSize.value = res.data.pageSize;

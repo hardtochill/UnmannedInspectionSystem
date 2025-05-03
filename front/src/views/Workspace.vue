@@ -26,8 +26,8 @@
             <div class="filter-section">
               <el-select v-model="statusFilter" placeholder="检测状态" class="filter-item">
                 <el-option label="全部" value="" />
-                <el-option label="正常" :value="1" />
-                <el-option label="异常" :value="0" />
+                <el-option label="正常" :value="0" />
+                <el-option label="异常" :value="1" />
               </el-select>
               <div class="filter-buttons">
                 <el-button type="primary" @click="handleSearch">查询</el-button>
@@ -47,8 +47,8 @@
             <el-table-column prop="measuringPointName" label="测点名称" />
             <el-table-column prop="measuringPointStatus" label="检测状态">
               <template #default="{ row }">
-                <el-tag :type="row.measuringPointStatus === 0 ? 'danger' : 'success'">
-                  {{ row.measuringPointStatus === 0 ? '异常' : '正常' }}
+                <el-tag :type="row.measuringPointStatus === 0 ? 'success' : 'danger'">
+                  {{ row.measuringPointStatus === 0 ? '正常' : '异常' }}
                 </el-tag>
               </template>
             </el-table-column>
@@ -419,7 +419,7 @@ const fetchDeviceStatusData = async () => {
     const res = await mpApi.loadList({
       pageNo: currentPage.value,
       pageSize: pageSize.value,
-      measuringPointStatus: statusFilter.value || undefined
+      status: statusFilter.value === '' ? undefined : statusFilter.value
     });
 
     if (res.code === 200) {

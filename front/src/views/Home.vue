@@ -2,7 +2,7 @@
  * @Author: Fhx0902 YJX040124@outlook.com
  * @Date: 2025-04-18 13:39:32
  * @LastEditors: Fhx0902 YJX040124@outlook.com
- * @LastEditTime: 2025-05-03 13:01:47
+ * @LastEditTime: 2025-05-03 18:07:54
  * @FilePath: \front\src\views\Home.vue
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
 -->
@@ -146,7 +146,7 @@ import { useRoute, useRouter } from 'vue-router';
 import * as echarts from 'echarts';
 import 'echarts-gl';
 import { User, CaretBottom, SwitchButton, Picture, Loading } from '@element-plus/icons-vue';
-import { ElMessageBox, ElMessage, ElDropdown, ElDropdownMenu, ElDropdownItem } from 'element-plus';
+import { ElMessageBox, ElMessage, ElDropdown, ElDropdownMenu, ElDropdownItem, ElFormItem } from 'element-plus';
 import { accountApi, alarmApi, deviceApi, workshopApi, mpApi } from '../api/index';
 import { useUserStore } from '@/stores/user';
 
@@ -852,19 +852,37 @@ const handleCommand = async (command) => {
           }
         );
         
-        // 清除用户状态
+        // 调用后端登出接口，添加userId参数
+        const userId = userStore.currentUser?.userId;
+        // 直接传递userId值，而不是包装成对象
+        const res = await accountApi.logout(userId);
+        
+        // 先检查401状态
+        if (res.code === 401) {
+          ElMessage.warning(res.info || '登录已过期');
+          // 清除用户状态
+          userStore.clearUser();
+          // 清除localStorage中的持久化数据
+          localStorage.removeItem('user');
+          // 跳转到登录页
+          router.push('/login');
+          return;
+        }
+        
+        // 处理其他错误状态
+        if (res.code !== 200) {
+          throw new Error(res.info || '退出失败');
+        }
+        
+        // 正常退出流程
         userStore.clearUser();
-        // 清除localStorage中的持久化数据
         localStorage.removeItem('user');
-        
-        // 跳转到登录页
         router.push('/login');
-        
         ElMessage.success('已退出登录');
       } catch (error) {
         if (error !== 'cancel') {
           console.error('退出登录错误:', error);
-          ElMessage.error('退出失败，请重试');
+          ElMessage.error(error.message || '退出失败，请重试');
         }
       }
       break;

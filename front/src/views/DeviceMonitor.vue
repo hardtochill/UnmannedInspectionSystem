@@ -34,7 +34,7 @@
             <div class="video-container" ref="videoContainer">
               <div v-if="isStreaming" class="stream-wrapper">
                 <video ref="videoPlayer" controls autoplay @error="handleVideoError">
-                  <source src="/count.mp4" type="video/mp4">
+                  <source src="/water.mp4" type="video/mp4">
                   Your browser does not support the video tag.
                 </video>
               </div>

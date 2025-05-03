@@ -5,6 +5,7 @@ import { ElMessage } from 'element-plus';
 import { User, Lock, Message } from '@element-plus/icons-vue';
 import { accountApi } from '@/api';
 import { useUserStore } from '@/stores/user';
+import md5 from 'crypto-js/md5';
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -22,9 +23,11 @@ const handleSubmit = async () => {
   if (isLogin.value) {
     try {
       console.log('准备发送登录请求:', form);
+      // 对密码进行md5加密
+      const encryptedPassword = md5(form.password).toString();
       const res = await accountApi.login({
         phoneNumber: form.phoneNumber,
-        password: form.password
+        password: encryptedPassword
       });
       console.log('登录响应数据:', res);
 

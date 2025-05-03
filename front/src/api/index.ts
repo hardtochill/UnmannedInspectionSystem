@@ -2,7 +2,7 @@
  * @Author: Fhx0902 YJX040124@outlook.com
  * @Date: 2025-04-19 23:18:07
  * @LastEditors: Fhx0902 YJX040124@outlook.com
- * @LastEditTime: 2025-05-03 12:14:47
+ * @LastEditTime: 2025-05-03 17:16:54
  * @FilePath: \front\src\api\index.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -275,6 +275,11 @@ export const mpApi = {
   }): Promise<ApiResponseType<any>> {
     // console.log('loadImage API params:', params);
     return http.post('/mp/loadImage', params);
+  },
+  async getDetail(params: {
+    mpId: number;
+  }): Promise<ApiResponseType<any>> {
+    return http.post('/mp/getDetail', params);
   }
 };
 export const workshopApi={
@@ -283,28 +288,16 @@ export const workshopApi={
   }
 }
 
-export const detectApi={
-  async detect(fileData: FormData): Promise<ApiResponseType<any>> {
+export const detectApi = {
+  async detect(fileData: FormData, modelName: string): Promise<ApiResponseType<any>> {
     try {
-      // console.log('准备发送图片检测请求');
-      
-      // // 检查FormData是否包含image字段
-      // console.log('FormData是否包含image字段:', fileData.has('image'));
-      
-      // // 调试信息
-      // console.log('FormData内容:');
-      // for (const pair of fileData.entries()) {
-      //   console.log(`字段: ${pair[0]}, 类型: ${pair[1] instanceof File ? 'File' : typeof pair[1]}`);
-      //   if (pair[1] instanceof File) {
-      //     const file = pair[1] as File;
-      //     console.log(`文件名: ${file.name}, 大小: ${file.size}, 类型: ${file.type}`);
-      //   }
-      // }
-      
+      // 添加 modelName 字段到 FormData 中
+      fileData.append('modelName', modelName);
+
       const userStore = useUserStore();
       const token = userStore.getToken();
-      
-      // 使用axios直接发送请求
+
+      // 使用 axios 直接发送请求
       const response = await axios({
         method: 'POST',
         url: '/api/detect/detect',

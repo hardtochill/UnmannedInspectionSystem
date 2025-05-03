@@ -32,7 +32,6 @@ import { Loading } from '@element-plus/icons-vue';
 
 const isLoading = ref(false);
 const resultImage = ref('');
-
 const handleDetection = async (file: File) => {
   try {
     // console.log('收到文件对象:', file);
@@ -62,7 +61,7 @@ const handleDetection = async (file: File) => {
     // console.log('FormData已创建，字段名为image');
     
     // 直接使用detectApi发送请求
-    const result = await detectApi.detect(formData);
+    const result = await detectApi.detect(formData, 'best');
     
     // console.log('检测结果:', result);
     
@@ -103,43 +102,53 @@ const handleDetection = async (file: File) => {
 </script>
 
 <style scoped>
-.meter-result {
+.feature-result {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
 }
-
 .result-item {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 8px;
 }
-
 .label {
   color: #8c8c8c;
   min-width: 80px;
 }
-
 .value {
   color: #fff;
 }
-
-.value.highlight {
-  font-size: 24px;
-  font-weight: 500;
-  color: var(--el-color-primary);
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
 }
-
-.unit {
+.loading-icon {
+  font-size: 48px;
+  color: #409eff;
+  animation: rotate 2s linear infinite;
+}
+@keyframes rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.loading-container p {
+  margin-top: 16px;
   color: #8c8c8c;
-  margin-left: 4px;
 }
-
-:deep(.el-progress) {
-  flex: 1;
+.result-image-container {
+  margin-bottom: 20px;
 }
-
-:deep(.el-progress-bar__outer) {
-  background-color: #1a1c1e !important;
+.result-image-container h4 {
+  color: #fff;
+  margin-bottom: 10px;
+}
+.result-image {
+  max-width: 100%;
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
 }
 </style> 

@@ -25,7 +25,15 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
-// import type { DeviceStatus } from '@/api/types';
+
+interface DeviceStatus {
+  mpId: number;
+  name: string;
+  description: string;
+  imageUrl?: string;
+  lastUpdate: string;
+  status: 'alarm' | 'warning' | 'normal' | 'offline' | 'shutdown';
+}
 
 const props = defineProps<{
   device: DeviceStatus;
@@ -65,11 +73,15 @@ const tagType = computed(() => {
 });
 
 const handleDetail = () => {
-  router.push(`/device-detail/${props.device.id}`);
+  console.log('Device props:', props.device);
+  console.log('Navigating to detail with mpId:', props.device.mpId);
+  router.push(`/device-detail/${props.device.mpId}`);
 };
 
 const handleMonitor = () => {
-  router.push(`/device-monitor/${props.device.id}`);
+  console.log('Device props:', props.device);
+  console.log('Navigating to monitor with mpId:', props.device.mpId);
+  router.push(`/device-monitor/${props.device.mpId}`);
 };
 </script>
 
